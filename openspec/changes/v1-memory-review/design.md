@@ -24,7 +24,7 @@ See proposal.md — Why. Constraints that shape the approach:
 ## Decisions
 
 ### D1. Single-file Node server, zero dependencies
-`server.js` uses only `http`, `fs`, `path`, `crypto`, `child_process`, `readline`, `os`. The bin entry in `package.json` points at it, so `npx -y scmd` is a download of two files.
+`server.js` uses only `http`, `fs`, `path`, `crypto`, `child_process`, `readline`, `os`. The bin entry in `package.json` points at it, so `npx -y @nelsonjohnsolo/scmd` is a download of two files.
 *Alternatives:* Express/Fastify (adds ~50 packages for routing we can write in 30 lines); Bun single executable (fast, but unsigned binaries trigger OS warnings and need CI for three platforms); Python stdlib server (zero-prerequisite on macOS/Linux, but the audience has Node and a JS repo is easier for contributors to the frontend).
 
 ### D2. Frontend talks to a five-method `backend`
@@ -72,7 +72,7 @@ On load the server returns the list and contents (capped at 256 KB each) of `~/.
 `--root <dir>` (default `~/.claude/projects`), `--state-dir <dir>` (default `~/.scmd`), `--port`, `--no-open`. Tests run the real server against `fixtures/` with a temporary state dir, using `node --test`. No mocking of the filesystem.
 
 ### D15. Plugin is a launcher, nothing more
-`plugin/` holds a manifest and one command, `/scmd`, whose instruction is to run the launcher in the background and report the URL. The repository root carries the marketplace manifest so `/plugin marketplace add <owner>/scmd` works. The plugin contains no logic of its own; if the plugin format shifts, the tool is unaffected.
+`plugin/` holds a manifest and one command, `/scmd`, whose instruction is to run the scoped npm launcher (`npx -y @nelsonjohnsolo/scmd`) in the background and report the URL. The repository root carries the marketplace manifest so `/plugin marketplace add <owner>/scmd` works. The plugin contains no logic of its own; if the plugin format shifts, the tool is unaffected.
 
 ### D16. Visual system (approved 2026-09-19)
 Sign-off artifact: https://claude.ai/artifact/6vecqURA1a6q1B7nHi4XDF. The page implements exactly this system; nothing else is introduced.
@@ -84,6 +84,10 @@ Sign-off artifact: https://claude.ai/artifact/6vecqURA1a6q1B7nHi4XDF. The page i
 - **Deck layout, top to bottom:** top bar (wordmark, progress "n of m" with bar, kept/deleted counts, "Review & apply") → filters on the soft surface (projects, types, Unreviewed/Everything toggle, search) → one centred card, max 560px → action row (✗ Delete · ↑ Skip · ✓ Keep · Undo) → keyboard hints → rewrite box with the "uses your local Claude Code login" line → notices as a sticker toast beneath.
 - **Tone:** blunt and short; at most one joke per screen; no exclamation marks; controls say what happens ("Apply 17 decisions").
 - **Motion:** 180 ms tilt, 150 ms stamp; all disabled under `prefers-reduced-motion`.
+
+### D17. Scoped npm identity, short executable and slash command
+The public package is `@nelsonjohnsolo/scmd` because npm rejected the unscoped `scmd` name under its package-name similarity policy. The direct no-install command is `npx -y @nelsonjohnsolo/scmd`; the installed executable remains `scmd`, and the Claude Code command remains `/scmd`. Product copy leads with `/scmd` for the intended audience and presents the scoped `npx` command as the terminal alternative.
+*Alternative:* choose a different unscoped npm name — rejected because it would change the product name without preserving the original short `npx -y scmd` command.
 
 ## Risks / Trade-offs
 

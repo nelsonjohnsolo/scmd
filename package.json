@@ -1,0 +1,11 @@
+{
+  "name": "@nelsonjohnsolo/scmd",
+  "version": "0.0.1",
+  "description": "Stop Calling Me Daddy — review Claude Code's memories as swipeable cards. Keep the good ones, delete the weird ones.",
+  "bin": { "scmd": "server.js" },
+  "files": ["server.js", "README.md", "LICENSE"],
+  "engines": { "node": ">=18" },
+  "keywords": ["claude", "claude-code", "memory", "cli", "developer-tools"],
+  "author": "Nelson John",
+  "license": "MIT"
+}

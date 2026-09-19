@@ -14,8 +14,9 @@ context: |
       Talks to the server through a small `backend` interface
       (listProjects, read, write, remove, modifyWithAI) so a
       File System Access API backend can be added later.
-    - Distribution: npm package `scmd` with a bin entry (`npx -y scmd`),
-      plus a thin Claude Code plugin exposing `/scmd` as a launcher.
+    - Distribution: public npm package `@nelsonjohnsolo/scmd` with a `scmd`
+      bin entry (`npx -y @nelsonjohnsolo/scmd`), plus a thin Claude Code
+      plugin exposing `/scmd` as the primary launcher.
 
   Domain facts about Claude Code memory:
     - Lives in ~/.claude/projects/<encoded-cwd>/memory/*.md with a

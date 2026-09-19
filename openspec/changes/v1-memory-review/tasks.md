@@ -1,6 +1,6 @@
 ## 1. Scaffold and fixtures
 
-- [ ] 1.1 Create `package.json` (name `scmd`, `bin` → `server.js`, `engines.node >= 18`, `files` limited to `server.js`, `index.html`, `plugin/`, `README.md`, `LICENSE`, no dependencies) and verify `npm pack --dry-run` lists exactly those files
+- [ ] 1.1 Create `package.json` (name `@nelsonjohnsolo/scmd`, `bin.scmd` → `server.js`, `engines.node >= 18`, `files` limited to `server.js`, `index.html`, `plugin/`, `README.md`, `LICENSE`, no dependencies) and verify `npm pack --dry-run` lists exactly those files
 - [ ] 1.2 Create `fixtures/projects/` with four project folders: (a) top-level `type:` variant, (b) nested `metadata:` variant, (c) no-frontmatter file plus a `feedback_`-prefixed file, (d) an empty `memory/` directory; include a `MEMORY.md` in (a) with one dangling line, and a session `.jsonl` in (a) containing a `cwd` field and a tool call that writes one of its memory files; verify `find fixtures -type f` shows every planned file
 - [ ] 1.3 Add a `node --test` harness (`test/*.test.js`) with a helper that starts `server.js` against `fixtures/projects` and a temporary state directory on a free port and returns the URL and token; verify `npm test` runs one passing smoke test that fetches the page
 
@@ -72,6 +72,6 @@
 
 ## 12. Packaging and release
 
-- [ ] 12.1 Write `README.md` — one-line description, `npx -y scmd`, plugin install, a GIF placeholder, what it reads and writes, privacy statement, then the origin story as "Why" — and add an MIT `LICENSE`; verify the README renders on GitHub without broken sections
+- [ ] 12.1 Write `README.md` — one-line description, `/scmd` after plugin install as the primary launch path, `npx -y @nelsonjohnsolo/scmd` as the direct-terminal alternative, a GIF placeholder, what it reads and writes, privacy statement, then the origin story as "Why" — and add an MIT `LICENSE`; verify the README renders on GitHub without broken sections
 - [ ] 12.2 Run the full suite and a manual end-to-end pass against the real `~/.claude/projects` (not a copy): launch, filter, search, keep several, delete one, rewrite one, view an origin, apply, restore the delete, relaunch and confirm only unreviewed cards appear; verify each step matches its spec scenario
-- [ ] 12.3 Publish `0.1.0` to npm and verify `npx -y scmd@0.1.0` starts from a machine or cache with no prior install
+- [ ] 12.3 Publish `0.1.0` to npm and verify `npx -y @nelsonjohnsolo/scmd@0.1.0` starts from a machine or cache with no prior install
