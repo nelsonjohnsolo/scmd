@@ -1,0 +1,49 @@
+schema: spec-driven
+
+# Project context — shown to AI when creating artifacts.
+context: |
+  SCMD ("Stop Calling Me Daddy") — a local tool to review Claude Code's
+  persistent memory across projects: browse memories as cards, swipe/keyboard
+  to keep or delete, optionally rewrite a memory with a local `claude -p` call.
+
+  Tech stack (deliberately minimal):
+    - server.js: single-file Node server, zero npm dependencies (built-in
+      http, fs, path, child_process). Binds 127.0.0.1 only, random port,
+      one-time token in the URL. Exits when the browser tab closes.
+    - index.html: vanilla HTML/JS/CSS, no framework, no build step.
+      Talks to the server through a small `backend` interface
+      (listProjects, read, write, remove, modifyWithAI) so a
+      File System Access API backend can be added later.
+    - Distribution: npm package `scmd` with a bin entry (`npx -y scmd`),
+      plus a thin Claude Code plugin exposing `/scmd` as a launcher.
+
+  Domain facts about Claude Code memory:
+    - Lives in ~/.claude/projects/<encoded-cwd>/memory/*.md with a
+      MEMORY.md index (one "- [Title](file.md) — hook" line per memory).
+    - <encoded-cwd> replaces every non-alphanumeric char with "-" and is
+      lossy; the real path is the "cwd" field in the project's session
+      .jsonl files. Never decode the folder name.
+    - Frontmatter has changed over time: older files have top-level
+      `type:` and `originSessionId:`; newer files nest them under
+      `metadata:` and add `modified:`. Only `name` and `description` are
+      stable. Parse all variants; fall back to filename prefix
+      (feedback_/project_/reference_/user_) for type.
+    - `description` is already a plain-English summary — use it as the
+      card headline; do not call AI just to summarise.
+    - Deleting a memory must also remove its line from MEMORY.md.
+
+  Product principles:
+    - Beautifully simple: one command to launch, nothing to configure.
+    - Decisions are batched and reviewed before any file is written;
+      deletes are soft (moved to ~/.scmd/trash) and restorable.
+    - Nothing leaves the machine except what the user explicitly sends to
+      their local `claude`.
+    - v1 is Claude Code only; Codex (~/.codex/memories) is a later adapter.
+
+rules:
+  proposal:
+    - Always include a "Non-goals" section
+    - Prefer removing scope over adding it; justify any new dependency
+  tasks:
+    - Each task should be verifiable by running the tool against a real
+      ~/.claude/projects directory
