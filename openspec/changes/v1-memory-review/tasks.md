@@ -34,8 +34,8 @@
 
 ## 6. Review page: deck
 
-- [ ] 6.1 Build the `index.html` shell with the five-method `backend` (HTTP implementation) plus `origin`, `instructions`, `events`, token bootstrap from the URL, and a fake backend for tests; verify the page loads against fixtures and shows the project list with counts
-- [ ] 6.2 Implement card rendering (name, summary headline, type badge, project chip, age, expandable body); verify each fixture variant renders with all fields and the real memories render without layout breaks at 360 px and 1280 px widths
+- [ ] 6.1 Build the `index.html` shell following the visual system in design D16 (tokens, fonts, sticker cards, pill controls) with the five-method `backend` (HTTP implementation) plus `origin`, `instructions`, `events`, token bootstrap from the URL, and a fake backend for tests; verify the page loads against fixtures and shows the project list with counts
+- [ ] 6.2 Implement card rendering per D16 (sticker card, name, summary headline, type badge, project chip, age, expandable body, DELETE/KEEP stamps); verify each fixture variant renders with all fields and the real memories render without layout breaks at 360 px and 1280 px widths
 - [ ] 6.3 Implement project and type filters and the unreviewed/everything switch with oldest-first ordering; verify selecting one project and one type yields the expected fixture cards and the top card is the oldest
 - [ ] 6.4 Implement search across name/summary/body and the read-only instruction-file hits (`~/.claude/CLAUDE.md`, per-project `CLAUDE.md`, `.claude/CLAUDE.md`, `CLAUDE.local.md`, capped at 256 KB each); verify a query that matches only a fixture `CLAUDE.md` shows a read-only entry with path and line and no card
 - [ ] 6.5 Implement the empty states (all reviewed, no memories found, filter yields nothing); verify each message appears under its condition against fixtures

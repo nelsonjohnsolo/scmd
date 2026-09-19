@@ -74,6 +74,17 @@ On load the server returns the list and contents (capped at 256 KB each) of `~/.
 ### D15. Plugin is a launcher, nothing more
 `plugin/` holds a manifest and one command, `/scmd`, whose instruction is to run the launcher in the background and report the URL. The repository root carries the marketplace manifest so `/plugin marketplace add <owner>/scmd` works. The plugin contains no logic of its own; if the plugin format shifts, the tool is unaffected.
 
+### D16. Visual system (approved 2026-09-19)
+Sign-off artifact: https://claude.ai/artifact/6vecqURA1a6q1B7nHi4XDF. The page implements exactly this system; nothing else is introduced.
+
+- **Palette (light):** paper `#FFFFFF`, ink `#121212`, muted `#6E6864`, soft surface `#F6F4F2`, red `#E5321E` (delete — the only loud accent), green `#1F9D55` (keep — semantic, quiet), marker `#FFE84D` (headline highlight only). Dark theme swaps paper/ink (`#101010` / `#F4F2EF`) and lifts red/green (`#FF5A45` / `#3FCB7A`); every colour is a CSS token on `:root`, redefined under `prefers-color-scheme: dark` and `[data-theme="dark"]`.
+- **Type:** Bricolage Grotesque 800 for headlines and card names (Google Fonts, with a heavy sans fallback); the system sans stack for body; JetBrains Mono for commands, memory text, keycaps, and labels. One type scale; uppercase labels get letter-spacing.
+- **Sticker cards:** 2px ink border, 18px radius, hard offset shadow `6px 6px 0 ink` (4px at phone width), no blur. Swipe tilts the card ±6° with a translate and shows a rubber-stamp DELETE (red, +12°) or KEEP (green, −12°). Two card edges peek behind the top card.
+- **Controls:** pill buttons (2px border, 999px radius) — primary is ink on paper, outline, red for delete, green for keep, ghost for undo. Chips for filters (ink when on), mono uppercase badges for memory type, keycap glyphs for keyboard hints.
+- **Deck layout, top to bottom:** top bar (wordmark, progress "n of m" with bar, kept/deleted counts, "Review & apply") → filters on the soft surface (projects, types, Unreviewed/Everything toggle, search) → one centred card, max 560px → action row (✗ Delete · ↑ Skip · ✓ Keep · Undo) → keyboard hints → rewrite box with the "uses your local Claude Code login" line → notices as a sticker toast beneath.
+- **Tone:** blunt and short; at most one joke per screen; no exclamation marks; controls say what happens ("Apply 17 decisions").
+- **Motion:** 180 ms tilt, 150 ms stamp; all disabled under `prefers-reduced-motion`.
+
 ## Risks / Trade-offs
 
 - [Memory format changes again] → tolerant reader with fallbacks for every field; fixtures pin each known variant; an unrecognised file becomes a card of type `unknown` rather than an error.

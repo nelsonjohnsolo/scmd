@@ -32,6 +32,14 @@ context: |
       card headline; do not call AI just to summarise.
     - Deleting a memory must also remove its line from MEMORY.md.
 
+  Visual system (approved; full spec in design D16 of v1-memory-review):
+    - White paper / near-black ink, one loud red for delete, quiet green
+      for keep, yellow marker highlight; Bricolage Grotesque 800 display,
+      system sans body, JetBrains Mono for commands and memory text.
+    - "Sticker" cards: 2px ink border, hard offset shadow, tilt on swipe,
+      rubber-stamp DELETE / KEEP. Pill buttons, chips, keycap hints.
+    - Tone: blunt, short, one joke per screen at most, no exclamation marks.
+
   Product principles:
     - Beautifully simple: one command to launch, nothing to configure.
     - Decisions are batched and reviewed before any file is written;
