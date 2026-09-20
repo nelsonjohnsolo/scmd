@@ -39,6 +39,7 @@
 - [x] 6.3 Implement project and type filters and the unreviewed/everything switch with oldest-first ordering; verify selecting one project and one type yields the expected fixture cards and the top card is the oldest
 - [x] 6.4 Implement search across name/summary/body and the read-only instruction-file hits (`~/.claude/CLAUDE.md`, per-project `CLAUDE.md`, `.claude/CLAUDE.md`, `CLAUDE.local.md`, capped at 256 KB each); verify a query that matches only a fixture `CLAUDE.md` shows a read-only entry with path and line and no card
 - [x] 6.5 Implement the empty states (all reviewed, no memories found, filter yields nothing); verify each message appears under its condition against fixtures
+- [x] 6.6 Refine the deck hierarchy from D16: move the non-sticky filtered-scope progress and session decision counts directly above the card with a working theme-aware fill; group the labelled Trash icon beside a marker-yellow enabled review CTA whose label includes the staged count; add visible card/action clearance; and place a bordered Edit by hand button below Rewrite on the right. Verify test-first that progress, ARIA values, filter recalculation, undo, dynamic CTA state, and the required source structure work, then inspect the real page at 360 px and 1280 px in light and dark themes
 
 ## 7. Review page: decisions
 

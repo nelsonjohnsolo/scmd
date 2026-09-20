@@ -101,6 +101,16 @@
       flex-wrap: wrap;
     }
 
+    .topbar-actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-left: auto;
+    }
+
+    .topbar-actions svg { flex: 0 0 auto; }
+
     .wordmark {
       display: inline-flex;
       align-items: baseline;
@@ -116,8 +126,11 @@
       text-transform: lowercase;
     }
 
-    .progress-wrap {
-      display: flex;
+    .progress-row {
+      position: static;
+      width: min(560px, 100%);
+      display: grid;
+      grid-template-columns: auto minmax(76px, 1fr) auto;
       align-items: center;
       gap: 10px;
       color: var(--muted);
@@ -126,15 +139,16 @@
     }
 
     .progress-track {
-      width: clamp(76px, 12vw, 140px);
+      width: 100%;
       height: 10px;
+      display: block;
       border: var(--border);
       border-radius: 999px;
       overflow: hidden;
       background: var(--paper);
     }
 
-    .progress-fill { width: 0; height: 100%; background: var(--ink); }
+    .progress-fill { width: 0; height: 100%; display: block; background: var(--ink); }
 
     .pill {
       min-height: 44px;
@@ -161,6 +175,18 @@
     .pill.danger, .pill.keep { font-size: 19px; }
     .pill.ghost { border-color: transparent; background: transparent; color: var(--muted); }
     .pill.small { min-height: 38px; padding: 9px 14px; font-size: 13px; }
+
+    .review-cta:not(:disabled) {
+      border-color: var(--ink);
+      background: var(--marker);
+      color: #121212;
+    }
+
+    .review-cta:disabled {
+      border-color: var(--muted);
+      background: var(--soft);
+      color: var(--muted);
+    }
 
     .filters {
       display: grid;
@@ -466,6 +492,7 @@
     .sticker-card[data-intent="keep"] .stamp.keep { opacity: 1; }
 
     .actions, .hints { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 10px 14px; }
+    .deck-actions { margin-top: 14px; }
 
     .hints { color: var(--muted); font: 500 12px/1 var(--mono); }
     .hint { display: inline-flex; align-items: center; gap: 6px; }
@@ -507,7 +534,8 @@
 
     .fine { padding-left: 4px; color: var(--muted); font: 500 12px/1.4 var(--mono); }
 
-    .rewrite-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .rewrite-hand-row { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+    .rewrite-hand { min-height: 44px; border: var(--border); background: var(--paper); color: var(--ink); }
     .rewrite-error { margin: 0; color: var(--red); font: 600 12px/1.5 var(--mono); }
     .rewrite-panel, .hand-editor {
       display: grid;
@@ -659,14 +687,21 @@
       .diff-grid { grid-template-columns: 1fr; }
     }
 
+    @media (max-width: 480px) {
+      .progress-row { grid-template-columns: 1fr auto; row-gap: 8px; }
+      #progress-label { grid-column: 1; grid-row: 1; }
+      #decision-counts { grid-column: 2; grid-row: 1; justify-self: end; }
+      .progress-track { grid-column: 1 / -1; grid-row: 2; }
+    }
+
     [hidden] { display: none !important; }
 
     @media (max-width: 720px) {
       :root { --shadow: 4px 4px 0 var(--ink); }
-      .topbar { align-items: flex-start; }
+      .topbar { align-items: center; gap: 12px; padding-inline: 12px; }
+      .topbar-actions { gap: 8px; }
+      .topbar-actions .pill.small { padding-inline: 10px; }
       .wordmark small { display: none; }
-      .progress-wrap { order: 3; width: 100%; justify-content: space-between; }
-      .progress-track { flex: 1; }
       .filter-label { width: 100%; }
       .filter-spacer { display: none; }
       .toggle { order: 2; }
@@ -686,13 +721,15 @@
   <main class="app" aria-labelledby="page-title">
     <header class="topbar">
       <div class="wordmark" id="page-title">SCMD <small>stop calling me daddy</small></div>
-      <div class="progress-wrap" aria-live="polite">
-        <span id="progress-label">0 of 0</span>
-        <span class="progress-track" id="progress-bar" role="progressbar" aria-label="Review progress" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"><span class="progress-fill"></span></span>
-        <span id="decision-counts">kept 0 · deleted 0</span>
+      <div class="topbar-actions">
+        <button class="pill small" id="trash-open" type="button" disabled>
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+            <path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13M10 11v5m4-5v5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+          </svg>
+          <span>Trash</span>
+        </button>
+        <button class="pill small review-cta" id="apply-review" type="button" disabled>Review decisions →</button>
       </div>
-      <button class="pill small" id="trash-open" type="button" disabled>Trash</button>
-      <button class="pill small" id="apply-review" type="button" disabled>Review &amp; apply →</button>
     </header>
 
     <section class="filters" aria-label="Deck filters">
@@ -721,9 +758,15 @@
     </section>
 
     <section class="stage" id="deck-stage" tabindex="-1" aria-label="Memory review deck">
-      <div class="status-line" aria-live="polite">
-        <span id="app-status">Reading Claude Code memories.</span>
+      <div class="status-line">
+        <span id="app-status" role="status" aria-live="polite" aria-atomic="true">Reading Claude Code memories.</span>
         <span>Nothing is written until you apply.</span>
+      </div>
+
+      <div class="progress-row">
+        <span id="progress-label" role="status" aria-live="polite" aria-atomic="true">0 of 0</span>
+        <span class="progress-track" id="progress-bar" role="progressbar" aria-label="Review progress" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"><span class="progress-fill" id="progress-fill" aria-hidden="true"></span></span>
+        <span id="decision-counts">kept 0 · deleted 0</span>
       </div>
 
       <div class="deck">
@@ -758,7 +801,7 @@
 
       <section class="instruction-results" id="instruction-results" aria-label="Read-only instruction matches" aria-live="polite" hidden></section>
 
-      <div class="actions" aria-label="Memory actions">
+      <div class="actions deck-actions" aria-label="Memory actions">
         <button class="pill danger" id="action-delete" type="button" disabled>✗ Delete</button>
         <button class="pill" id="action-skip" type="button" disabled>↑ Skip</button>
         <button class="pill keep" id="action-keep" type="button" disabled>✓ Keep</button>
@@ -780,8 +823,8 @@
           <input id="rewrite-input" type="text" placeholder="Rewrite with your Claude…" disabled>
           <button class="pill small primary" id="rewrite-button" type="button" disabled>Rewrite</button>
         </div>
-        <div class="rewrite-actions">
-          <button class="pill small ghost" id="rewrite-hand" type="button" disabled>Edit by hand</button>
+        <div class="rewrite-hand-row">
+          <button class="pill small rewrite-hand" id="rewrite-hand" type="button" disabled>Edit by hand</button>
         </div>
         <span class="fine" id="rewrite-login">Uses your local Claude Code login</span>
         <span class="fine">Shows a diff before anything is staged.</span>
@@ -3500,14 +3543,18 @@
         function renderDecisionControls(cards) {
           const locked = interactionFlowLocked();
           const hasCard = state.screen === 'deck' && cards.length > 0 && !locked;
+          const decisionCount = state.decisions.size;
           deleteButton.disabled = !hasCard;
           skipButton.disabled = !hasCard;
           keepButton.disabled = !hasCard;
           undoButton.disabled = state.screen !== 'deck' || locked || state.history.length === 0;
+          applyButton.textContent = decisionCount > 0
+            ? `Review ${decisionCount} ${decisionCount === 1 ? 'decision' : 'decisions'} →`
+            : 'Review decisions →';
           applyButton.disabled = state.screen !== 'deck'
             || state.applying
             || locked
-            || state.decisions.size === 0;
+            || decisionCount === 0;
           trashButton.disabled = state.screen !== 'deck' || state.applying || locked;
         }
 
@@ -3565,20 +3612,35 @@
             state.selectedProjects,
             state.query,
           );
-          const decided = [...state.decisions.values()]
-            .filter((decision) => decision.action !== 'edit').length;
-          getElement(documentRef, 'progress-label').textContent = `${decided} of ${decided + cards.length}`;
-          const progress = getElement(documentRef, 'progress-bar');
-          progress.setAttribute('aria-valuemax', String(decided + cards.length));
-          progress.setAttribute('aria-valuenow', String(decided));
+          const progressCards = visibleCards(
+            state.allProjects,
+            state.selectedProjects,
+            state.selectedTypes,
+            state.query,
+            state.includeReviewed,
+          );
+          const progressIds = new Set(progressCards.map((entry) => entry.card.id));
           const decisions = [...state.decisions.values()];
+          const decided = decisions.filter((decision) => (
+            ['keep', 'delete'].includes(decision.action) && progressIds.has(decision.id)
+          )).length;
+          const progressTotal = progressCards.length;
+          const progressPercent = progressTotal > 0 ? (decided / progressTotal) * 100 : 0;
+          getElement(documentRef, 'progress-label').textContent = `${decided} of ${progressTotal}`;
+          const progress = getElement(documentRef, 'progress-bar');
+          progress.setAttribute('aria-valuemin', '0');
+          progress.setAttribute('aria-valuemax', String(progressTotal));
+          progress.setAttribute('aria-valuenow', String(decided));
+          progress.setAttribute('aria-valuetext', `${decided} of ${progressTotal}`);
+          getElement(documentRef, 'progress-fill').style.width = `${progressPercent}%`;
           const kept = decisions.filter((decision) => decision.action === 'keep').length;
           const deleted = decisions.filter((decision) => decision.action === 'delete').length;
           getElement(documentRef, 'decision-counts').textContent = `kept ${kept} · deleted ${deleted}`;
-          getElement(documentRef, 'app-status').textContent = instructionMatches.total > 0
+          const status = getElement(documentRef, 'app-status');
+          const statusMessage = instructionMatches.total > 0
             ? `${cards.length} ${cards.length === 1 ? 'memory' : 'memories'} · ${instructionMatches.total} read-only ${instructionMatches.total === 1 ? 'instruction hit' : 'instruction hits'}`
             : cards.length > 0
-              ? `${cards.length} ${cards.length === 1 ? 'memory' : 'memories'} in deck`
+              ? ''
               : totalMemories === 0
                 ? `No Claude Code memories were found in ${state.root}.`
                 : !state.includeReviewed
@@ -3588,6 +3650,8 @@
                   : matchingCards.length > 0
                     ? 'No memories remain in this deck; review and apply your staged decisions.'
                   : 'No memories match these filters.';
+          status.textContent = statusMessage;
+          status.hidden = false;
           if (!motionFlowLocked()) resetDragVisual();
           renderCard({
             document: documentRef,
@@ -3752,9 +3816,11 @@
 
       function renderFatal(documentRef, message) {
         const fatal = getElement(documentRef, 'fatal-error');
+        const status = getElement(documentRef, 'app-status');
         fatal.textContent = message;
         fatal.hidden = false;
-        getElement(documentRef, 'app-status').textContent = 'SCMD could not load this review.';
+        status.textContent = 'SCMD could not load this review.';
+        status.hidden = false;
       }
 
       async function boot({

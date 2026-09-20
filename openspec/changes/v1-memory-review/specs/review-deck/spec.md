@@ -50,6 +50,17 @@ A search box SHALL filter the deck to memories whose name, summary, or body cont
 - **WHEN** the user types a word that appears in the body of two memories in different projects
 - **THEN** the deck contains exactly those two cards
 
+### Requirement: Progress follows the current deck scope
+Immediately above the card, the page SHALL show a non-sticky progress indicator whose denominator is every memory matching the current project, type, review-scope, and search filters and whose numerator is the matching memories with a staged keep or delete. The same area SHALL show session-wide staged keep and delete counts. Skip and edit SHALL not advance progress, undo SHALL reverse the corresponding progress, and special empty or instruction-search status messages SHALL remain visible when relevant.
+
+#### Scenario: Decision and undo update progress
+- **WHEN** the current filtered scope contains four memories and the user keeps one, deletes one, skips one, then undoes the delete
+- **THEN** progress moves from 0 of 4 to 1 of 4 while the session-wide kept and deleted counts reflect the remaining staged decisions
+
+#### Scenario: Filter recalculates progress
+- **WHEN** the user has staged decisions in more than one project and then filters the deck to one project
+- **THEN** the progress numerator and denominator describe only that project's matching memories while the staged kept and deleted counts still describe the whole session
+
 ### Requirement: Instruction-file hits are reported, not managed
 When a search query matches text in a Claude Code instruction file (global or per project), the results SHALL include a read-only entry naming the file and line, stating that SCMD does not edit that file.
 

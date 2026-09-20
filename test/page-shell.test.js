@@ -137,6 +137,7 @@ function fakeDocument() {
     'hand-editor-save',
     'hand-editor-text',
     'progress-bar',
+    'progress-fill',
     'progress-label',
     'project-chips',
     'scope-everything',
@@ -230,6 +231,50 @@ test('page source contains the approved offline D16 shell', async () => {
   assert.match(page, /role="alert"/);
   assert.doesNotMatch(page, /https?:\/\/(?!127\.0\.0\.1|localhost)/i);
   assert.doesNotMatch(page, /fonts\.googleapis|@import\s+url|\.innerHTML\s*=/i);
+});
+
+test('task 6.6 source puts progress by the deck and groups labelled header actions', async () => {
+  const page = await readFile(PAGE_PATH, 'utf8');
+  const topbar = page.match(/<header class="topbar">[\s\S]*?<\/header>/)?.[0] || '';
+  const stage = page.match(/<section class="stage"[^>]*>[\s\S]*?<section class="instruction-results"/)?.[0] || '';
+  const trash = topbar.match(/<button[^>]*id="trash-open"[\s\S]*?<\/button>/)?.[0] || '';
+
+  assert.doesNotMatch(topbar, /id="progress-(?:label|bar|fill)"/);
+  assert.match(topbar, /class="topbar-actions"/);
+  assert.ok(topbar.indexOf('id="trash-open"') < topbar.indexOf('id="apply-review"'));
+  assert.match(trash, /<svg\b[^>]*aria-hidden="true"/);
+  assert.match(trash, />\s*Trash\s*<\/span>/);
+  assert.doesNotMatch(trash, /🗑|♻|🚮/u);
+  assert.match(
+    stage,
+    /<div class="progress-row"[^>]*>[\s\S]*?id="progress-fill"[\s\S]*?<\/div>\s*<div class="deck">/,
+  );
+  assert.match(
+    stage,
+    /id="progress-label"[^>]*role="status"[^>]*aria-live="polite"[^>]*aria-atomic="true"/,
+  );
+  assert.match(stage, /id="app-status"[^>]*role="status"[^>]*aria-live="polite"/);
+  assert.match(stage, /Nothing is written until you apply\./);
+  assert.doesNotMatch(stage.match(/<div class="status-line"[^>]*>/)?.[0] || '', /aria-live/);
+  assert.doesNotMatch(stage.match(/<div class="progress-row"[^>]*>/)?.[0] || '', /aria-live/);
+});
+
+test('task 6.6 source styles the synchronized fill, CTA, deck clearance, and hand editor control', async () => {
+  const page = await readFile(PAGE_PATH, 'utf8');
+
+  assert.match(page, /\.topbar-actions\s*\{[^}]*gap:\s*(?:8|9|10)px/s);
+  assert.match(page, /\.progress-row\s*\{[^}]*position:\s*static/s);
+  assert.match(page, /\.progress-fill\s*\{[^}]*display:\s*block[^}]*background:\s*var\(--ink\)/s);
+  assert.match(page, /\.review-cta:not\(:disabled\)\s*\{[^}]*background:\s*var\(--marker\)[^}]*color:\s*#121212/s);
+  assert.match(page, /\.review-cta:disabled\s*\{[^}]*background:\s*var\(--soft\)/s);
+  assert.match(page, /\.deck-actions\s*\{[^}]*margin-top:\s*(?!0\b)[^;}]+/s);
+  assert.match(page, /\.rewrite-hand-row\s*\{[^}]*justify-content:\s*flex-end/s);
+  assert.match(page, /\.rewrite-hand\s*\{[^}]*min-height:\s*44px[^}]*border:\s*var\(--border\)/s);
+  assert.match(page, /class="pill small rewrite-hand"[^>]*id="rewrite-hand"/);
+  assert.doesNotMatch(page, /\.progress-wrap\s*\{\s*order:\s*3/s);
+  assert.match(page, /@media\s*\(max-width:\s*480px\)[\s\S]*?\.progress-row\s*\{[^}]*grid-template-columns:\s*1fr auto/s);
+  assert.match(page, /@media\s*\(max-width:\s*480px\)[\s\S]*?#decision-counts\s*\{[^}]*grid-column:\s*2[^}]*grid-row:\s*1/s);
+  assert.match(page, /@media\s*\(max-width:\s*480px\)[\s\S]*?\.progress-track\s*\{[^}]*grid-column:\s*1\s*\/\s*-1[^}]*grid-row:\s*2/s);
 });
 
 test('rewrite shell has the exact local-login line and hides proposal and editor initially', async () => {
@@ -683,6 +728,164 @@ function decisionFixture() {
     }],
   };
 }
+
+test('task 6.6 clears ordinary deck status but exposes instruction, empty, and error messages', async () => {
+  const { window } = await loadPageApi();
+  const document = fakeDocument();
+  const fake = window.SCMD.createFakeBackend({
+    ...decisionFixture(),
+    instructions: [{
+      path: '/example/CLAUDE.md',
+      projectId: null,
+      content: 'instruction-only needle',
+    }],
+  });
+  let failReload = false;
+  const backend = {
+    ...fake,
+    listProjects(options) {
+      if (failReload) throw new Error('reload failed');
+      return fake.listProjects(options);
+    },
+  };
+
+  await window.SCMD.boot({ backend, document, window });
+  const status = document.elements['app-status'];
+  assert.equal(status.hidden, false);
+  assert.equal(status.textContent, '');
+
+  document.elements['search-input'].value = 'instruction-only needle';
+  await document.elements['search-input'].dispatch('input');
+  assert.equal(status.hidden, false);
+  assert.match(status.textContent, /1 read-only instruction hit/);
+
+  document.elements['search-input'].value = 'missing everywhere';
+  await document.elements['search-input'].dispatch('input');
+  assert.equal(status.hidden, false);
+  assert.equal(status.textContent, 'No memories match these filters.');
+
+  document.elements['search-input'].value = '';
+  await document.elements['search-input'].dispatch('input');
+  assert.equal(status.hidden, false);
+  assert.equal(status.textContent, '');
+
+  failReload = true;
+  await document.elements['scope-everything'].dispatch('click');
+  assert.equal(status.hidden, false);
+  assert.equal(status.textContent, 'SCMD could not load this review.');
+});
+
+test('task 6.6 progress keeps visual and ARIA ratios synchronized through edit, skip, decision, and undo', async () => {
+  const { window } = await loadPageApi();
+  const document = fakeDocument();
+  const loaded = await window.SCMD.boot({
+    backend: window.SCMD.createFakeBackend(decisionFixture()),
+    document,
+    window,
+  });
+  const progress = document.elements['progress-bar'];
+  const fill = document.elements['progress-fill'];
+
+  assert.equal(document.elements['progress-label'].textContent, '0 of 4');
+  assert.equal(progress['aria-valuemin'], '0');
+  assert.equal(progress['aria-valuenow'], '0');
+  assert.equal(progress['aria-valuemax'], '4');
+  assert.equal(fill.style.width, '0%');
+  assert.equal(document.elements['apply-review'].disabled, true);
+  assert.equal(document.elements['apply-review'].textContent, 'Review decisions →');
+
+  loaded.controller.stageEdit('demo/a.md', 'edited by hand');
+  assert.equal(document.elements['progress-label'].textContent, '0 of 4');
+  assert.equal(progress['aria-valuenow'], '0');
+  assert.equal(fill.style.width, '0%');
+  assert.equal(document.elements['apply-review'].textContent, 'Review 1 decision →');
+  await document.elements['action-undo'].dispatch('click');
+
+  await document.elements['action-skip'].dispatch('click');
+  assert.equal(document.elements['progress-label'].textContent, '0 of 4');
+  assert.equal(progress['aria-valuenow'], '0');
+  assert.equal(fill.style.width, '0%');
+
+  await document.elements['action-keep'].dispatch('click');
+  assert.equal(document.elements['progress-label'].textContent, '1 of 4');
+  assert.equal(progress['aria-valuenow'], '1');
+  assert.equal(progress['aria-valuemax'], '4');
+  assert.equal(fill.style.width, '25%');
+  assert.equal(document.elements['apply-review'].disabled, false);
+  assert.equal(document.elements['apply-review'].textContent, 'Review 1 decision →');
+
+  await document.elements['action-undo'].dispatch('click');
+  assert.equal(document.elements['progress-label'].textContent, '0 of 4');
+  assert.equal(progress['aria-valuenow'], '0');
+  assert.equal(fill.style.width, '0%');
+  assert.equal(document.elements['apply-review'].disabled, true);
+  assert.equal(document.elements['apply-review'].textContent, 'Review decisions →');
+});
+
+test('task 6.6 progress recalculates every scope while counts and CTA stay session-wide', async () => {
+  const { window } = await loadPageApi();
+  const document = fakeDocument();
+  const backend = window.SCMD.createFakeBackend({
+    projects: [
+      {
+        id: 'alpha', name: 'alpha', memoryCount: 3,
+        cards: [
+          { id: 'alpha/a.md', projectId: 'alpha', name: 'Alpha', summary: 'Alpha', type: 'project', date: '2026-01-01T00:00:00.000Z', body: 'alpha', hash: 'a' },
+          { id: 'alpha/b.md', projectId: 'alpha', name: 'Bravo', summary: 'Bravo', type: 'feedback', date: '2026-02-01T00:00:00.000Z', body: 'bravo', hash: 'b' },
+          { id: 'alpha/reviewed.md', projectId: 'alpha', name: 'Reviewed', summary: 'Reviewed', type: 'project', date: '2026-03-01T00:00:00.000Z', body: 'reviewed', hash: 'r', reviewed: true },
+        ],
+      },
+      {
+        id: 'beta', name: 'beta', memoryCount: 1,
+        cards: [
+          { id: 'beta/c.md', projectId: 'beta', name: 'Gamma', summary: 'Gamma', type: 'project', date: '2026-04-01T00:00:00.000Z', body: 'gamma', hash: 'c' },
+        ],
+      },
+    ],
+  });
+
+  await window.SCMD.boot({ backend, document, window });
+  await document.elements['action-keep'].dispatch('click');
+  await document.elements['action-delete'].dispatch('click');
+
+  assert.equal(document.elements['progress-label'].textContent, '2 of 3');
+  assert.ok(Math.abs(Number.parseFloat(document.elements['progress-fill'].style.width) - (200 / 3)) < 0.001);
+  assert.equal(document.elements['decision-counts'].textContent, 'kept 1 · deleted 1');
+  assert.equal(document.elements['apply-review'].textContent, 'Review 2 decisions →');
+
+  const projectChip = (id) => document.elements['project-chips'].children
+    .find((button) => button.dataset.filterKey === `project:${id}`);
+  const typeChip = (id) => document.elements['type-chips'].children
+    .find((button) => button.dataset.filterKey === id);
+
+  await projectChip('alpha').dispatch('click');
+  assert.equal(document.elements['progress-label'].textContent, '0 of 1');
+
+  document.elements['search-input'].value = 'no matching memory';
+  await document.elements['search-input'].dispatch('input');
+  assert.equal(document.elements['progress-label'].textContent, '0 of 0');
+  assert.equal(document.elements['progress-bar']['aria-valuenow'], '0');
+  assert.equal(document.elements['progress-bar']['aria-valuemax'], '0');
+  assert.equal(document.elements['progress-fill'].style.width, '0%');
+
+  document.elements['search-input'].value = '';
+  await document.elements['search-input'].dispatch('input');
+  await projectChip('alpha').dispatch('click');
+  await typeChip('feedback').dispatch('click');
+  assert.equal(document.elements['progress-label'].textContent, '1 of 2');
+
+  document.elements['search-input'].value = 'Gamma';
+  await document.elements['search-input'].dispatch('input');
+  assert.equal(document.elements['progress-label'].textContent, '0 of 1');
+  assert.equal(document.elements['decision-counts'].textContent, 'kept 1 · deleted 1');
+  assert.equal(document.elements['apply-review'].textContent, 'Review 2 decisions →');
+
+  document.elements['search-input'].value = '';
+  await document.elements['search-input'].dispatch('input');
+  await document.elements['scope-everything'].dispatch('click');
+  assert.equal(document.elements['progress-label'].textContent, '1 of 3');
+  assert.equal(document.elements['decision-counts'].textContent, 'kept 1 · deleted 1');
+});
 
 test('origin lookup is lazy, shows loading, and renders found text and date literally', async () => {
   const { window } = await loadPageApi();
