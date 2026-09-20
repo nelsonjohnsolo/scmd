@@ -1,0 +1,17 @@
+{
+  "name": "scmd",
+  "description": "Launch the local SCMD memory review tool.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Nelson John",
+    "email": "nelson@solobits.dev",
+    "url": "https://github.com/nelsonjohnsolo/scmd"
+  },
+  "homepage": "https://github.com/nelsonjohnsolo/scmd",
+  "repository": "https://github.com/nelsonjohnsolo/scmd",
+  "license": "MIT",
+  "keywords": [
+    "claude-code",
+    "memory"
+  ]
+}

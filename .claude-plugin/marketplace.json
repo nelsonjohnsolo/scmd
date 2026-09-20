@@ -1,0 +1,30 @@
+{
+  "name": "scmd",
+  "owner": {
+    "name": "Nelson John",
+    "email": "nelson@solobits.dev"
+  },
+  "metadata": {
+    "description": "Review Claude Code persistent memories locally.",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "scmd",
+      "source": "./plugin",
+      "description": "Launch the local SCMD memory review tool.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Nelson John",
+        "email": "nelson@solobits.dev"
+      },
+      "homepage": "https://github.com/nelsonjohnsolo/scmd",
+      "repository": "https://github.com/nelsonjohnsolo/scmd",
+      "license": "MIT",
+      "keywords": [
+        "claude-code",
+        "memory"
+      ]
+    }
+  ]
+}

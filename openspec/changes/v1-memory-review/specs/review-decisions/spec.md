@@ -5,7 +5,7 @@ Lets the user decide each memory's fate quickly and safely: decisions are staged
 ## ADDED Requirements
 
 ### Requirement: Three decisions and undo
-For the top card the user SHALL be able to keep, delete, or skip using the keyboard, on-card buttons, or a horizontal drag, and SHALL be able to undo the most recent decisions in order.
+For the top card the user SHALL be able to keep or delete using the keyboard, on-card buttons, or a horizontal drag; SHALL be able to skip using the keyboard or on-card button; and SHALL be able to undo the most recent decisions in order.
 
 #### Scenario: Keyboard keep
 - **WHEN** the user presses the right arrow
@@ -22,6 +22,37 @@ For the top card the user SHALL be able to keep, delete, or skip using the keybo
 #### Scenario: Undo
 - **WHEN** the user activates undo after staging a delete
 - **THEN** that card returns to the top with no decision
+
+### Requirement: Directional decision feedback
+Every keep, delete, skip, and undo action SHALL provide directional card feedback before the deck advances, SHALL produce the same decision and motion semantics regardless of whether an available action came from pointer, keyboard, or button input, and SHALL prevent an in-progress transition from acting on another card.
+
+#### Scenario: Committed pointer delete
+- **WHEN** the user releases a predominantly horizontal drag beyond the left threshold
+- **THEN** the DELETE stamp remains visible while that card continues left from its release position and exits before the delete is staged once and the next card becomes active
+
+#### Scenario: Committed keep from keyboard or button
+- **WHEN** the user keeps the centred card with the right arrow or Keep button
+- **THEN** the card leans right with the KEEP stamp and completes the same rightward exit before the keep is staged once and the next card becomes active
+
+#### Scenario: Short drag returns
+- **WHEN** the user releases a drag below the decision threshold or cancels it
+- **THEN** the card returns to its resting position and no decision is staged
+
+#### Scenario: Skip feedback
+- **WHEN** the user skips with the up arrow or Skip button
+- **THEN** the card lifts and fades upward without a DELETE or KEEP stamp before moving once to the end of the deck
+
+#### Scenario: Undo feedback
+- **WHEN** the user undoes a keep, delete, or skip
+- **THEN** the restored card re-enters from the direction associated with that prior action, settles on top without a decision stamp, and the prior state is reversed once
+
+#### Scenario: Input during transition
+- **WHEN** another pointer, keyboard, or decision-button input occurs while a card is exiting or re-entering
+- **THEN** no second card is kept, deleted, skipped, or restored by that input
+
+#### Scenario: Reduced motion
+- **WHEN** the user prefers reduced motion and activates keep, delete, skip, or undo
+- **THEN** the same state and focus update happens immediately without transform, fade, stamp animation, or an artificial wait
 
 ### Requirement: Nothing is written before apply
 Staging decisions SHALL not modify any file.

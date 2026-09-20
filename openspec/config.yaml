@@ -16,7 +16,7 @@ context: |
       File System Access API backend can be added later.
     - Distribution: public npm package `@nelsonjohnsolo/scmd` with a `scmd`
       bin entry (`npx -y @nelsonjohnsolo/scmd`), plus a thin Claude Code
-      plugin exposing `/scmd` as the primary launcher.
+      plugin exposing `/scmd:run` as the primary launcher.
 
   Domain facts about Claude Code memory:
     - Lives in ~/.claude/projects/<encoded-cwd>/memory/*.md with a

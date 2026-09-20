@@ -9,17 +9,17 @@ The plugin SHALL be installable through Claude Code's plugin mechanism directly 
 
 #### Scenario: Install
 - **WHEN** the user adds the repository as a plugin source and installs `scmd`
-- **THEN** the `/scmd` command is available in subsequent sessions
+- **THEN** the `/scmd:run` command is available in subsequent sessions
 
-### Requirement: `/scmd` launches the tool
-The `/scmd` command SHALL start the launcher without blocking the session and report the review URL.
+### Requirement: `/scmd:run` launches the tool
+The `/scmd:run` command SHALL start the launcher without blocking the session and report the review URL.
 
 #### Scenario: Launch from a session
-- **WHEN** the user runs `/scmd`
+- **WHEN** the user runs `/scmd:run`
 - **THEN** the tool starts in the background, the session reports the URL, and the browser opens the review page
 
 ### Requirement: AI rewrite works when launched from a session
-A tool started by `/scmd` SHALL still be able to perform AI rewrites.
+A tool started by `/scmd:run` SHALL still be able to perform AI rewrites.
 
 #### Scenario: Nested launch
 - **WHEN** the tool was started from inside a Claude Code session and the user requests a rewrite
@@ -30,4 +30,4 @@ The plugin SHALL only start the launcher; all behaviour SHALL come from the tool
 
 #### Scenario: Tool updated independently
 - **WHEN** the tool is updated without updating the plugin
-- **THEN** `/scmd` starts the updated tool
+- **THEN** `/scmd:run` starts the updated tool

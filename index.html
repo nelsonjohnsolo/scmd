@@ -1,0 +1,3888 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self'; img-src 'self' data:; font-src 'self' data:; style-src 'unsafe-inline'; script-src 'unsafe-inline'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>SCMD — memory review</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --paper: #FFFFFF;
+      --ink: #121212;
+      --muted: #6E6864;
+      --soft: #F6F4F2;
+      --red: #E5321E;
+      --red-soft: #FDE8E5;
+      --green: #1F9D55;
+      --green-soft: #E3F5EA;
+      --marker: #FFE84D;
+      --display: "Bricolage Grotesque", "Arial Black", "Helvetica Neue", Arial, sans-serif;
+      --body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --border: 2px solid var(--ink);
+      --radius: 18px;
+      --shadow: 6px 6px 0 var(--ink);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --paper: #101010;
+        --ink: #F4F2EF;
+        --muted: #A39C97;
+        --soft: #1B1918;
+        --red: #FF5A45;
+        --red-soft: #3A1612;
+        --green: #3FCB7A;
+        --green-soft: #10301D;
+        --marker: #D9C21A;
+      }
+    }
+
+    :root[data-theme="dark"] {
+      --paper: #101010;
+      --ink: #F4F2EF;
+      --muted: #A39C97;
+      --soft: #1B1918;
+      --red: #FF5A45;
+      --red-soft: #3A1612;
+      --green: #3FCB7A;
+      --green-soft: #10301D;
+      --marker: #D9C21A;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { min-width: 320px; background: var(--paper); }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font: 16px/1.5 var(--body);
+    }
+
+    button, input, textarea { font: inherit; }
+    button { color: inherit; }
+
+    button:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible {
+      outline: 3px solid var(--ink);
+      outline-offset: 3px;
+      box-shadow: 0 0 0 6px var(--marker);
+    }
+
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px clamp(16px, 3vw, 28px);
+      border-bottom: var(--border);
+      flex-wrap: wrap;
+    }
+
+    .wordmark {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 10px;
+      font: 800 24px/1 var(--display);
+      letter-spacing: -.02em;
+    }
+
+    .wordmark small {
+      color: var(--muted);
+      font: 600 11px/1 var(--mono);
+      letter-spacing: .06em;
+      text-transform: lowercase;
+    }
+
+    .progress-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+      font: 600 12px/1 var(--mono);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .progress-track {
+      width: clamp(76px, 12vw, 140px);
+      height: 10px;
+      border: var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+      background: var(--paper);
+    }
+
+    .progress-fill { width: 0; height: 100%; background: var(--ink); }
+
+    .pill {
+      min-height: 44px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 11px 18px;
+      border: var(--border);
+      border-radius: 999px;
+      background: var(--paper);
+      color: var(--ink);
+      font-weight: 700;
+      line-height: 1;
+      cursor: pointer;
+      transition: transform 180ms ease, box-shadow 180ms ease;
+    }
+
+    .pill:hover:not(:disabled) { transform: translate(-1px, -1px); box-shadow: 3px 3px 0 var(--ink); }
+    .pill:disabled { cursor: not-allowed; opacity: .5; }
+    .pill.primary { background: var(--ink); color: var(--paper); }
+    .pill.danger { background: var(--red); border-color: var(--red); color: var(--paper); }
+    .pill.keep { background: var(--green); border-color: var(--green); color: var(--paper); }
+    .pill.danger, .pill.keep { font-size: 19px; }
+    .pill.ghost { border-color: transparent; background: transparent; color: var(--muted); }
+    .pill.small { min-height: 38px; padding: 9px 14px; font-size: 13px; }
+
+    .filters {
+      display: grid;
+      gap: 12px;
+      padding: 14px clamp(16px, 3vw, 28px);
+      border-bottom: var(--border);
+      background: var(--soft);
+    }
+
+    .filter-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+
+    .filter-label {
+      width: 76px;
+      color: var(--muted);
+      font: 600 11px/1 var(--mono);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .chip {
+      min-height: 34px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 7px 12px;
+      border: var(--border);
+      border-radius: 999px;
+      background: var(--paper);
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    button.chip { cursor: pointer; }
+    .chip.on { background: var(--ink); color: var(--paper); }
+    .chip.soft { border-color: transparent; background: color-mix(in srgb, var(--soft), var(--paper) 30%); }
+
+    .filter-spacer { flex: 1 1 20px; }
+
+    .toggle {
+      display: inline-flex;
+      border: var(--border);
+      border-radius: 999px;
+      overflow: hidden;
+      background: var(--paper);
+    }
+
+    .toggle button {
+      min-height: 34px;
+      padding: 7px 12px;
+      border: 0;
+      background: transparent;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .toggle button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+
+    .search {
+      min-height: 38px;
+      flex: 1 1 230px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 13px;
+      border: var(--border);
+      border-radius: 999px;
+      background: var(--paper);
+    }
+
+    .search input {
+      width: 100%;
+      min-width: 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--ink);
+    }
+
+    .stage {
+      width: 100%;
+      display: grid;
+      justify-items: center;
+      align-content: start;
+      gap: 22px;
+      padding: clamp(30px, 5vw, 54px) 16px 48px;
+    }
+
+    .status-line {
+      width: min(560px, 100%);
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      color: var(--muted);
+      font: 600 12px/1.4 var(--mono);
+    }
+
+    .deck {
+      width: min(560px, calc(100% - 10px));
+      position: relative;
+      isolation: isolate;
+    }
+
+    .deck-edge {
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      border: var(--border);
+      border-radius: var(--radius);
+      background: var(--paper);
+    }
+
+    .deck-edge.back { transform: translate(-6px, 20px) rotate(-1.5deg); }
+    .deck-edge.middle { transform: translate(6px, 10px) rotate(1.5deg); }
+
+    .sticker-card {
+      min-height: 300px;
+      display: grid;
+      align-content: start;
+      gap: 16px;
+      padding: clamp(20px, 5vw, 28px);
+      border: var(--border);
+      border-radius: var(--radius);
+      background: var(--paper);
+      box-shadow: var(--shadow);
+      position: relative;
+      transition: transform 180ms ease;
+      cursor: grab;
+      touch-action: pan-y;
+    }
+
+    .sticker-card[data-dragging="true"] { cursor: grabbing; transition: none; }
+    .sticker-card[data-motion] { pointer-events: none; }
+    .sticker-card[data-motion="snapback"] {
+      transition: transform 180ms ease, opacity 180ms ease;
+    }
+    .sticker-card[data-motion^="pointer-exit-"] {
+      opacity: 0;
+      transition: transform 180ms ease-in, opacity 180ms ease-in;
+    }
+    .sticker-card[data-motion="exit-left"] { animation: card-exit-left 220ms ease-in forwards; }
+    .sticker-card[data-motion="exit-right"] { animation: card-exit-right 220ms ease-in forwards; }
+    .sticker-card[data-motion="exit-up"] { animation: card-exit-up 180ms ease-in forwards; }
+    .sticker-card[data-motion="reenter-left"] { animation: card-reenter-left 180ms ease-out both; }
+    .sticker-card[data-motion="reenter-right"] { animation: card-reenter-right 180ms ease-out both; }
+    .sticker-card[data-motion="reenter-up"] { animation: card-reenter-up 180ms ease-out both; }
+
+    @keyframes card-exit-left {
+      0% { transform: translateX(0) rotate(0); opacity: 1; }
+      22% { transform: translateX(-24px) rotate(-3deg); opacity: 1; }
+      100% { transform: translateX(calc(-100vw - 120%)) rotate(-6deg); opacity: 0; }
+    }
+    @keyframes card-exit-right {
+      0% { transform: translateX(0) rotate(0); opacity: 1; }
+      22% { transform: translateX(24px) rotate(3deg); opacity: 1; }
+      100% { transform: translateX(calc(100vw + 120%)) rotate(6deg); opacity: 0; }
+    }
+    @keyframes card-exit-up {
+      from { transform: translateY(0) scale(1); opacity: 1; }
+      to { transform: translateY(-96px) scale(.97); opacity: 0; }
+    }
+    @keyframes card-reenter-left {
+      from { transform: translateX(calc(-100vw - 120%)) rotate(-6deg); opacity: 0; }
+      to { transform: translateX(0) rotate(0); opacity: 1; }
+    }
+    @keyframes card-reenter-right {
+      from { transform: translateX(calc(100vw + 120%)) rotate(6deg); opacity: 0; }
+      to { transform: translateX(0) rotate(0); opacity: 1; }
+    }
+    @keyframes card-reenter-up {
+      from { transform: translateY(-96px) scale(.97); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+
+    .card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+    .card-meta .chip { max-width: 100%; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+
+    .card-path {
+      min-width: 0;
+      margin: -8px 0 0;
+      color: var(--muted);
+      font: 500 11px/1.5 var(--mono);
+      overflow-wrap: anywhere;
+    }
+
+    .badge {
+      max-width: 100%;
+      min-width: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 9px;
+      border: 1.5px solid var(--ink);
+      border-radius: 6px;
+      font: 600 11px/1 var(--mono);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+      overflow-wrap: anywhere;
+      white-space: normal;
+    }
+
+    .badge-dot { width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
+
+    .card-kicker { margin: 0; color: var(--muted); font: 600 11px/1.4 var(--mono); text-transform: uppercase; letter-spacing: .08em; overflow-wrap: anywhere; }
+
+    .card-name {
+      margin: 0;
+      font: 800 clamp(26px, 6vw, 38px)/1.03 var(--display);
+      letter-spacing: -.025em;
+      text-wrap: balance;
+      overflow-wrap: anywhere;
+    }
+
+    .marker { background: var(--marker); color: #121212; padding: 0 .12em; border-radius: 4px; }
+
+    .card-copy { margin: 0; color: var(--muted); font: 14px/1.6 var(--mono); }
+
+    .card-details { border-top: 1.5px solid var(--ink); padding-top: 12px; }
+
+    .card-details summary {
+      width: fit-content;
+      cursor: pointer;
+      color: var(--ink);
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: underline;
+      text-decoration-thickness: 2px;
+      text-underline-offset: 3px;
+    }
+
+    .card-details[open] summary { margin-bottom: 12px; }
+
+    .card-body {
+      max-height: 42vh;
+      margin: 0;
+      overflow: auto;
+      color: var(--ink);
+      font: 13px/1.65 var(--mono);
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    .card-origin-wrap {
+      display: grid;
+      gap: 10px;
+      padding-top: 2px;
+    }
+
+    .card-origin-toggle {
+      width: fit-content;
+      padding: 0;
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      font: 700 12px/1.4 var(--mono);
+      text-decoration: underline;
+      text-decoration-thickness: 1.5px;
+      text-underline-offset: 3px;
+    }
+
+    .card-origin {
+      display: grid;
+      gap: 6px;
+      padding: 12px 14px;
+      border: 1.5px solid var(--ink);
+      border-radius: 12px;
+      background: var(--soft);
+    }
+
+    .card-origin p { margin: 0; }
+    .card-origin-status {
+      color: var(--muted);
+      font: 700 11px/1.3 var(--mono);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .card-origin-date { color: var(--muted); font: 600 11px/1.4 var(--mono); }
+    .card-origin-message { color: var(--ink); font: 13px/1.55 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+    .stamp {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      padding: 7px 11px;
+      border: 3px solid currentColor;
+      border-radius: 8px;
+      opacity: 0;
+      font: 800 20px/1 var(--display);
+      letter-spacing: .08em;
+      transform: rotate(12deg);
+      transition: opacity 150ms ease;
+    }
+
+    .stamp.delete { color: var(--red); }
+    .stamp.keep { color: var(--green); transform: rotate(-12deg); }
+    .sticker-card[data-intent="delete"] .stamp.delete,
+    .sticker-card[data-intent="keep"] .stamp.keep { opacity: 1; }
+
+    .actions, .hints { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 10px 14px; }
+
+    .hints { color: var(--muted); font: 500 12px/1 var(--mono); }
+    .hint { display: inline-flex; align-items: center; gap: 6px; }
+
+    kbd {
+      padding: 3px 6px;
+      border: 1.5px solid var(--ink);
+      border-bottom-width: 3px;
+      border-radius: 6px;
+      background: var(--paper);
+      color: var(--ink);
+      font: 600 11px/1 var(--mono);
+    }
+
+    .rewrite {
+      width: min(560px, 100%);
+      display: grid;
+      gap: 8px;
+    }
+
+    .rewrite-box {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 8px 8px 16px;
+      border: var(--border);
+      border-radius: 14px;
+      background: var(--paper);
+    }
+
+    .rewrite-box input {
+      flex: 1;
+      min-width: 0;
+      border: 0;
+      outline: 0;
+      background: transparent;
+      color: var(--ink);
+    }
+
+    .fine { padding-left: 4px; color: var(--muted); font: 500 12px/1.4 var(--mono); }
+
+    .rewrite-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .rewrite-error { margin: 0; color: var(--red); font: 600 12px/1.5 var(--mono); }
+    .rewrite-panel, .hand-editor {
+      display: grid;
+      gap: 14px;
+      padding: 16px;
+      border: var(--border);
+      border-radius: 14px;
+      background: var(--soft);
+    }
+    .rewrite-panel h2, .rewrite-panel h3, .hand-editor label { margin: 0; }
+    .rewrite-panel h2 { font: 800 20px/1.2 var(--display); }
+    .rewrite-panel h3, .hand-editor label {
+      font: 700 11px/1.3 var(--mono);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .diff-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    .diff-side { min-width: 0; }
+    .diff-lines {
+      max-height: 320px;
+      margin: 8px 0 0;
+      padding: 10px 10px 10px 42px;
+      overflow: auto;
+      border: 1.5px solid var(--ink);
+      border-radius: 10px;
+      background: var(--paper);
+      font: 12px/1.55 var(--mono);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .diff-lines li { min-height: 1.55em; padding-inline: 4px; }
+    .diff-lines .removed { background: var(--red-soft); }
+    .diff-lines .added { background: var(--green-soft); }
+    .diff-lines .omitted { color: var(--muted); }
+    .hand-editor textarea {
+      width: 100%;
+      min-height: 280px;
+      resize: vertical;
+      padding: 12px;
+      border: 1.5px solid var(--ink);
+      border-radius: 10px;
+      background: var(--paper);
+      color: var(--ink);
+      font: 13px/1.55 var(--mono);
+      tab-size: 2;
+    }
+
+    .notices {
+      width: min(560px, 100%);
+      display: grid;
+      gap: 10px;
+    }
+
+    .notice {
+      margin: 0;
+      padding: 12px 16px;
+      border: var(--border);
+      border-radius: 14px;
+      background: var(--paper);
+      box-shadow: 5px 5px 0 var(--ink);
+      font-size: 14px;
+    }
+
+    .notice-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .instruction-results {
+      width: min(560px, 100%);
+      display: grid;
+      gap: 12px;
+    }
+
+    .instruction-hit {
+      min-width: 0;
+      padding: 16px;
+      border: var(--border);
+      border-radius: 14px;
+      background: var(--soft);
+      overflow-wrap: anywhere;
+    }
+
+    .instruction-hit p { margin: 0; }
+    .instruction-hit p + p { margin-top: 8px; }
+    .instruction-location { font: 600 11px/1.5 var(--mono); }
+    .instruction-excerpt { color: var(--ink); font: 13px/1.55 var(--mono); white-space: pre-wrap; }
+    .instruction-note { color: var(--muted); font-size: 12px; }
+    .instruction-results-note {
+      margin: 0;
+      padding: 12px 14px;
+      border: 2px dashed var(--ink);
+      border-radius: 12px;
+      background: var(--paper);
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .fatal {
+      width: min(560px, 100%);
+      margin: 0;
+      padding: 14px 16px;
+      border: 2px solid var(--red);
+      border-radius: 14px;
+      background: var(--red-soft);
+      color: var(--ink);
+    }
+
+    .review-sheet {
+      width: min(680px, 100%);
+      display: grid;
+      gap: 20px;
+      padding: clamp(22px, 5vw, 34px);
+      border: var(--border);
+      border-radius: var(--radius);
+      background: var(--paper);
+      box-shadow: var(--shadow);
+    }
+
+    .review-sheet h2, .review-sheet h3, .review-sheet p { margin: 0; }
+    .review-sheet h2 { font: 800 clamp(28px, 6vw, 42px)/1 var(--display); }
+    .review-summary-counts { color: var(--muted); font: 600 13px/1.5 var(--mono); }
+    .review-lists { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+    .review-list { min-width: 0; }
+    .review-list h3 { margin-bottom: 8px; font: 800 18px/1.2 var(--display); }
+    .review-list ul, .result-list { margin: 0; padding-left: 22px; }
+    .review-list li, .result-list li { margin-top: 7px; overflow-wrap: anywhere; }
+    .review-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; }
+    .result-list { display: grid; gap: 8px; font-family: var(--mono); }
+    .trash-runs { display: grid; gap: 16px; }
+    .trash-run {
+      display: grid;
+      gap: 10px;
+      padding: 16px;
+      border: var(--border);
+      border-radius: 14px;
+      background: var(--soft);
+    }
+    .trash-run h3, .trash-run p { margin: 0; }
+    .trash-size { color: var(--muted); font: 600 12px/1.4 var(--mono); }
+    .trash-items { display: grid; gap: 9px; margin: 0; padding: 0; list-style: none; }
+    .trash-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .trash-item span { min-width: 0; overflow-wrap: anywhere; }
+
+    @media (max-width: 560px) {
+      .review-lists { grid-template-columns: 1fr; }
+      .diff-grid { grid-template-columns: 1fr; }
+    }
+
+    [hidden] { display: none !important; }
+
+    @media (max-width: 720px) {
+      :root { --shadow: 4px 4px 0 var(--ink); }
+      .topbar { align-items: flex-start; }
+      .wordmark small { display: none; }
+      .progress-wrap { order: 3; width: 100%; justify-content: space-between; }
+      .progress-track { flex: 1; }
+      .filter-label { width: 100%; }
+      .filter-spacer { display: none; }
+      .toggle { order: 2; }
+      .search { order: 3; flex-basis: 100%; }
+      .stage { padding-inline: 12px; }
+      .sticker-card { min-height: 270px; }
+      .actions .pill { padding-inline: 14px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; }
+      .pill:hover:not(:disabled) { transform: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app" aria-labelledby="page-title">
+    <header class="topbar">
+      <div class="wordmark" id="page-title">SCMD <small>stop calling me daddy</small></div>
+      <div class="progress-wrap" aria-live="polite">
+        <span id="progress-label">0 of 0</span>
+        <span class="progress-track" id="progress-bar" role="progressbar" aria-label="Review progress" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0"><span class="progress-fill"></span></span>
+        <span id="decision-counts">kept 0 · deleted 0</span>
+      </div>
+      <button class="pill small" id="trash-open" type="button" disabled>Trash</button>
+      <button class="pill small" id="apply-review" type="button" disabled>Review &amp; apply →</button>
+    </header>
+
+    <section class="filters" aria-label="Deck filters">
+      <div class="filter-row">
+        <span class="filter-label">Projects</span>
+        <div class="chips" id="project-chips" aria-live="polite">
+          <span class="chip soft">loading projects</span>
+        </div>
+      </div>
+      <div class="filter-row">
+        <span class="filter-label">Type</span>
+        <div class="chips" id="type-chips" aria-label="Memory types">
+          <span class="chip soft">loading types</span>
+        </div>
+        <span class="filter-spacer"></span>
+        <span class="toggle" aria-label="Review scope">
+          <button id="scope-unreviewed" type="button" aria-pressed="true" disabled>Unreviewed</button>
+          <button id="scope-everything" type="button" aria-pressed="false" disabled>Everything</button>
+        </span>
+        <label class="search">
+          <span aria-hidden="true">⌕</span>
+          <span class="sr-only">Search memories</span>
+          <input id="search-input" type="search" placeholder="search all memories… ( / )" disabled>
+        </label>
+      </div>
+    </section>
+
+    <section class="stage" id="deck-stage" tabindex="-1" aria-label="Memory review deck">
+      <div class="status-line" aria-live="polite">
+        <span id="app-status">Reading Claude Code memories.</span>
+        <span>Nothing is written until you apply.</span>
+      </div>
+
+      <div class="deck">
+        <div class="deck-edge back" aria-hidden="true"></div>
+        <div class="deck-edge middle" aria-hidden="true"></div>
+        <article class="sticker-card" id="memory-card">
+          <span class="stamp delete" aria-hidden="true">DELETE</span>
+          <span class="stamp keep" aria-hidden="true">KEEP</span>
+          <div class="card-meta">
+            <span class="badge"><span class="badge-dot"></span><span id="card-type">memory</span></span>
+            <span class="chip soft" id="card-project">local only</span>
+            <time class="card-copy" id="card-age">today</time>
+            <span class="chip soft" id="card-reviewed" hidden>previously reviewed</span>
+          </div>
+          <p class="card-path" id="card-path">path unknown</p>
+          <p class="card-kicker" id="card-name">Deck shell</p>
+          <h1 class="card-name" id="card-summary">Your memories are loading.</h1>
+          <details class="card-details" id="card-details">
+            <summary>show full memory ▸</summary>
+            <pre class="card-body" id="card-body"></pre>
+          </details>
+          <div class="card-origin-wrap">
+            <button class="card-origin-toggle" id="card-origin-toggle" type="button" aria-controls="card-origin" aria-expanded="false">why was this saved?</button>
+            <section class="card-origin" id="card-origin" aria-live="polite" hidden>
+              <p class="card-origin-status" id="card-origin-status"></p>
+              <time class="card-origin-date" id="card-origin-date" hidden></time>
+              <p class="card-origin-message" id="card-origin-message"></p>
+            </section>
+          </div>
+        </article>
+      </div>
+
+      <section class="instruction-results" id="instruction-results" aria-label="Read-only instruction matches" aria-live="polite" hidden></section>
+
+      <div class="actions" aria-label="Memory actions">
+        <button class="pill danger" id="action-delete" type="button" disabled>✗ Delete</button>
+        <button class="pill" id="action-skip" type="button" disabled>↑ Skip</button>
+        <button class="pill keep" id="action-keep" type="button" disabled>✓ Keep</button>
+        <button class="pill ghost" id="action-undo" type="button" disabled>Undo</button>
+      </div>
+
+      <div class="hints" aria-label="Keyboard shortcuts">
+        <span class="hint"><kbd>←</kbd> delete</span>
+        <span class="hint"><kbd>→</kbd> keep</span>
+        <span class="hint"><kbd>↑</kbd> skip</span>
+        <span class="hint"><kbd>z</kbd> undo</span>
+        <span class="hint"><kbd>e</kbd> edit</span>
+        <span class="hint"><kbd>/</kbd> search</span>
+      </div>
+
+      <div class="rewrite">
+        <label class="sr-only" for="rewrite-input">Rewrite instruction</label>
+        <div class="rewrite-box" id="rewrite-box">
+          <input id="rewrite-input" type="text" placeholder="Rewrite with your Claude…" disabled>
+          <button class="pill small primary" id="rewrite-button" type="button" disabled>Rewrite</button>
+        </div>
+        <div class="rewrite-actions">
+          <button class="pill small ghost" id="rewrite-hand" type="button" disabled>Edit by hand</button>
+        </div>
+        <span class="fine" id="rewrite-login">Uses your local Claude Code login</span>
+        <span class="fine">Shows a diff before anything is staged.</span>
+        <span class="fine" id="rewrite-unavailable" hidden>Installing Claude Code enables rewrites.</span>
+        <p class="rewrite-error" id="rewrite-error" role="alert" hidden></p>
+
+        <section class="rewrite-panel" id="rewrite-panel" aria-labelledby="rewrite-panel-title" hidden>
+          <h2 id="rewrite-panel-title">Review the proposed memory</h2>
+          <div class="diff-grid">
+            <section class="diff-side" id="rewrite-before" aria-labelledby="rewrite-before-title">
+              <h3 id="rewrite-before-title">Before</h3>
+              <ol class="diff-lines" id="rewrite-before-lines"></ol>
+            </section>
+            <section class="diff-side" id="rewrite-after" aria-labelledby="rewrite-after-title">
+              <h3 id="rewrite-after-title">After</h3>
+              <ol class="diff-lines" id="rewrite-after-lines"></ol>
+            </section>
+          </div>
+          <div class="review-actions">
+            <button class="pill small ghost" id="rewrite-reject" type="button">Reject</button>
+            <button class="pill small keep" id="rewrite-accept" type="button">Accept edit</button>
+          </div>
+        </section>
+
+        <section class="hand-editor" id="hand-editor" aria-labelledby="hand-editor-label" hidden>
+          <label id="hand-editor-label" for="hand-editor-text">Full memory file</label>
+          <textarea id="hand-editor-text" spellcheck="false"></textarea>
+          <div class="review-actions">
+            <button class="pill small ghost" id="hand-editor-cancel" type="button">Cancel</button>
+            <button class="pill small primary" id="hand-editor-save" type="button">Stage edit</button>
+          </div>
+        </section>
+      </div>
+
+      <div class="notices" id="notices" aria-live="polite"></div>
+      <p class="fatal" id="fatal-error" role="alert" hidden></p>
+    </section>
+
+    <section class="stage" id="apply-panel" aria-labelledby="apply-title" hidden>
+      <div class="review-sheet">
+        <h2 id="apply-title">Review before applying</h2>
+        <p class="review-summary-counts" id="apply-summary-counts"></p>
+        <div class="notices" id="apply-notices" aria-live="polite"></div>
+        <div class="review-lists">
+          <section class="review-list" aria-labelledby="apply-delete-title">
+            <h3 id="apply-delete-title">Deletes</h3>
+            <ul id="apply-delete-list"></ul>
+          </section>
+          <section class="review-list" aria-labelledby="apply-edit-title">
+            <h3 id="apply-edit-title">Edits</h3>
+            <ul id="apply-edit-list"></ul>
+          </section>
+        </div>
+        <p>Nothing changes until you confirm this list.</p>
+        <div class="review-actions">
+          <button class="pill ghost" id="apply-cancel" type="button">Back</button>
+          <button class="pill primary" id="apply-confirm" type="button">Confirm apply</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="stage" id="apply-results" aria-labelledby="result-title" hidden>
+      <div class="review-sheet">
+        <h2 id="result-title">Apply results</h2>
+        <ul class="result-list" id="apply-result-list" aria-live="polite"></ul>
+        <div class="review-actions">
+          <button class="pill primary" id="result-back" type="button">Back to deck</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="stage" id="trash-panel" aria-labelledby="trash-title" hidden>
+      <div class="review-sheet">
+        <h2 id="trash-title" tabindex="-1">Trash</h2>
+        <p>Deleted memories stay local until you restore or purge them.</p>
+        <div class="notices" id="trash-notices" aria-live="polite"></div>
+        <div class="trash-runs" id="trash-runs"></div>
+        <div class="review-actions">
+          <button class="pill primary" id="trash-back" type="button">Back to deck</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const rootWindow = window;
+      const clone = (value) => JSON.parse(JSON.stringify(value));
+
+      function createHttpBackend({ token, fetchImpl = fetch, schedule = rootWindow.setTimeout.bind(rootWindow) }) {
+        if (!token) throw new Error('A launch token is required.');
+        const cards = new Map();
+
+        async function request(path, { method = 'GET', body, signal } = {}) {
+          const headers = { 'X-SCMD-Token': token };
+          const options = { method, headers, signal };
+          if (body !== undefined) {
+            headers['Content-Type'] = 'application/json';
+            options.body = JSON.stringify(body);
+          }
+          const response = await fetchImpl(path, options);
+          let payload;
+          try {
+            payload = await response.json();
+          } catch {
+            payload = undefined;
+          }
+          if (!response.ok) {
+            const error = new Error(payload?.error?.message || 'SCMD request failed.');
+            error.code = payload?.error?.code || 'request-failed';
+            throw error;
+          }
+          return payload;
+        }
+
+        async function listProjects({ includeReviewed = false } = {}) {
+          const payload = await request(includeReviewed ? '/api/projects?includeReviewed=1' : '/api/projects');
+          cards.clear();
+          for (const project of payload.projects || []) {
+            for (const card of project.cards || []) cards.set(card.id, card);
+          }
+          return payload;
+        }
+
+        async function read(id) {
+          if (id && typeof id === 'object' && id.trash === true) {
+            return request('/api/trash');
+          }
+          if (id && typeof id === 'object' && id.status === true) {
+            return request('/api/status');
+          }
+          if (typeof id !== 'string' || !id) throw new Error('Memory is no longer available.');
+          return request(`/api/memory/${encodeURIComponent(id)}`);
+        }
+
+        async function applyOne(id, action, newContent, expectedHash) {
+          const card = await read(id);
+          const decision = { id, action, expectedHash: expectedHash || card.hash };
+          if (action === 'edit') decision.newContent = newContent;
+          const payload = await request('/api/apply', {
+            method: 'POST',
+            body: { decisions: [decision] },
+          });
+          return payload.results?.[0];
+        }
+
+        function write(id, text, { expectedHash } = {}) {
+          if (id && typeof id === 'object' && id.restore) {
+            return request('/api/restore', {
+              method: 'POST',
+              body: id.restore,
+            });
+          }
+          if (Array.isArray(id)) {
+            return request('/api/apply', {
+              method: 'POST',
+              body: { decisions: id },
+            });
+          }
+          return applyOne(id, 'edit', text, expectedHash);
+        }
+
+        function remove(id, { expectedHash } = {}) {
+          if (id && typeof id === 'object' && typeof id.trashRunId === 'string') {
+            return request('/api/purge', {
+              method: 'POST',
+              body: { runId: id.trashRunId },
+            });
+          }
+          return applyOne(id, 'delete', undefined, expectedHash);
+        }
+
+        function modifyWithAI(id, instruction, options = {}) {
+          const body = { id, instruction };
+          if (Object.prototype.hasOwnProperty.call(options, 'content')) {
+            body.content = options.content;
+          }
+          return request('/api/rewrite', { method: 'POST', body });
+        }
+
+        function origin(id) {
+          return request(`/api/origin/${encodeURIComponent(id)}`);
+        }
+
+        function instructions() {
+          return request('/api/instructions');
+        }
+
+        function events(onEvent = () => {}) {
+          let stopped = false;
+          let activeController;
+
+          async function connect() {
+            if (stopped) return;
+            const controller = new AbortController();
+            activeController = controller;
+            try {
+              const response = await fetchImpl('/api/events', {
+                headers: { 'X-SCMD-Token': token },
+                signal: controller.signal,
+              });
+              if (!response.ok || !response.body) throw new Error('Event stream unavailable.');
+              const reader = response.body.getReader();
+              const decoder = new TextDecoder();
+              let buffered = '';
+              while (!stopped) {
+                const chunk = await reader.read();
+                if (chunk.done) break;
+                buffered += decoder.decode(chunk.value, { stream: true });
+                const frames = buffered.split('\n\n');
+                buffered = frames.pop() || '';
+                for (const frame of frames) {
+                  const data = frame.split('\n')
+                    .filter((line) => line.startsWith('data:'))
+                    .map((line) => line.slice(5).trim())
+                    .join('\n');
+                  if (!data) continue;
+                  try { onEvent(JSON.parse(data)); } catch { /* Ignore malformed event payloads. */ }
+                }
+              }
+            } catch {
+              // Refreshes and short local disconnects are expected.
+            } finally {
+              if (!stopped) schedule(connect, 1_000);
+            }
+          }
+
+          connect();
+          return () => {
+            stopped = true;
+            activeController?.abort();
+          };
+        }
+
+        return { listProjects, read, write, remove, modifyWithAI, origin, instructions, events };
+      }
+
+      function createFakeBackend(seed = {}) {
+        const data = clone({
+          root: seed.root || '~/.claude/projects',
+          projects: seed.projects || [],
+          notices: seed.notices || [],
+        });
+        const calls = [];
+        const configuredApplyResults = Array.isArray(seed.applyResults)
+          ? clone(seed.applyResults)
+          : undefined;
+        const trash = clone(seed.trash || { runs: [], notices: [] });
+        const allCards = () => data.projects.flatMap((project) => project.cards || []);
+        const contentHash = (content) => {
+          const text = String(content);
+          let value = 2166136261;
+          for (let index = 0; index < text.length; index += 1) {
+            value ^= text.charCodeAt(index);
+            value = Math.imul(value, 16777619);
+          }
+          return `fake-${text.length}-${(value >>> 0).toString(16).padStart(8, '0')}`;
+        };
+
+        async function listProjects(options = {}) {
+          calls.push({ method: 'listProjects', options: clone(options) });
+          const result = clone(data);
+          if (!options.includeReviewed) {
+            for (const project of result.projects) {
+              project.cards = (project.cards || []).filter((card) => card.reviewed !== true);
+            }
+          }
+          return result;
+        }
+
+        async function read(id) {
+          if (id && typeof id === 'object' && id.trash === true) {
+            calls.push({ method: 'read', trash: true });
+            return clone(trash);
+          }
+          if (id && typeof id === 'object' && id.status === true) {
+            calls.push({ method: 'read', status: true });
+            return { rewriteAvailable: seed.rewriteAvailable !== false };
+          }
+          calls.push({ method: 'read', id });
+          const card = allCards().find((candidate) => candidate.id === id);
+          if (!card) throw new Error('Memory is no longer available.');
+          return clone({
+            ...card,
+            content: typeof card.content === 'string' ? card.content : (card.body || ''),
+          });
+        }
+
+        async function write(id, text, options = {}) {
+          if (id && typeof id === 'object' && id.restore) {
+            calls.push({ method: 'write', restore: clone(id.restore) });
+            for (const run of trash.runs || []) {
+              if (run.id !== id.restore.runId) continue;
+              const item = (run.items || []).find((candidate) => candidate.id === id.restore.id);
+              if (item) {
+                item.status = 'restored';
+                item.restorable = false;
+              }
+            }
+            return {
+              result: {
+                runId: id.restore.runId,
+                id: id.restore.id,
+                status: 'restored',
+              },
+            };
+          }
+          if (Array.isArray(id)) {
+            const decisions = clone(id);
+            calls.push({ method: 'write', decisions });
+            const results = configuredApplyResults
+              ? clone(configuredApplyResults)
+              : decisions.map((decision) => ({
+                id: decision.id,
+                action: decision.action,
+                status: 'applied',
+              }));
+            for (let index = 0; index < decisions.length; index += 1) {
+              const decision = decisions[index];
+              const result = results[index];
+              if (result?.status !== 'applied') continue;
+              for (const project of data.projects) {
+                const cardIndex = (project.cards || [])
+                  .findIndex((candidate) => candidate.id === decision.id);
+                if (cardIndex < 0) continue;
+                if (decision.action === 'keep') project.cards[cardIndex].reviewed = true;
+                if (decision.action === 'edit') {
+                  Object.assign(
+                    project.cards[cardIndex],
+                    memoryPreview(decision.newContent, project.cards[cardIndex]),
+                    { hash: contentHash(decision.newContent) },
+                  );
+                }
+                if (decision.action === 'delete') {
+                  project.cards.splice(cardIndex, 1);
+                  project.memoryCount = Math.max(0, Number(project.memoryCount || 0) - 1);
+                }
+                break;
+              }
+            }
+            return { results };
+          }
+          calls.push({ method: 'write', id, text, options: clone(options) });
+          const card = allCards().find((candidate) => candidate.id === id);
+          if (!card) throw new Error('Memory is no longer available.');
+          Object.assign(card, memoryPreview(text, card), { hash: contentHash(text) });
+          return { id, action: 'edit', status: 'applied' };
+        }
+
+        async function remove(id, options = {}) {
+          if (id && typeof id === 'object' && typeof id.trashRunId === 'string') {
+            calls.push({ method: 'remove', trashRunId: id.trashRunId });
+            const runIndex = (trash.runs || []).findIndex((run) => run.id === id.trashRunId);
+            if (runIndex >= 0) trash.runs.splice(runIndex, 1);
+            return { result: { runId: id.trashRunId, status: 'purged' } };
+          }
+          calls.push({ method: 'remove', id, options: clone(options) });
+          return { id, action: 'delete', status: 'applied' };
+        }
+
+        async function modifyWithAI(id, instruction, options = {}) {
+          calls.push({ method: 'modifyWithAI', id, instruction, options: clone(options) });
+          if (!seed.rewriteResult) throw new Error('No fake rewrite result configured.');
+          const card = allCards().find((candidate) => candidate.id === id);
+          if (!card) throw new Error('Memory is no longer available.');
+          const before = Object.prototype.hasOwnProperty.call(options, 'content')
+            ? options.content
+            : (typeof card.content === 'string' ? card.content : (card.body || ''));
+          return { ...clone(seed.rewriteResult), before };
+        }
+
+        async function origin(id) {
+          calls.push({ method: 'origin', id });
+          return null;
+        }
+
+        async function instructions() {
+          calls.push({ method: 'instructions' });
+          const files = Array.isArray(seed.instructions)
+            ? seed.instructions
+            : seed.instructions?.files || [];
+          return { files: clone(files) };
+        }
+
+        function events(onEvent = () => {}) {
+          calls.push({ method: 'events' });
+          for (const event of seed.events || []) onEvent(clone(event));
+          return () => {};
+        }
+
+        return { listProjects, read, write, remove, modifyWithAI, origin, instructions, events, calls };
+      }
+
+      function getElement(documentRef, id) {
+        return documentRef.getElementById(id);
+      }
+
+      function formatAge(value, now = Date.now()) {
+        const timestamp = Date.parse(value);
+        const current = Number(now);
+        if (!Number.isFinite(timestamp) || !Number.isFinite(current)) return 'date unknown';
+        const days = Math.floor(Math.max(0, current - timestamp) / 86_400_000);
+        if (days < 1) return 'today';
+        const amount = days < 7
+          ? days
+          : days < 30
+            ? Math.floor(days / 7)
+            : days < 365
+              ? Math.floor(days / 30)
+              : Math.floor(days / 365);
+        const unit = days < 7 ? 'day' : days < 30 ? 'week' : days < 365 ? 'month' : 'year';
+        return `${amount} ${unit}${amount === 1 ? '' : 's'} old`;
+      }
+
+      function renderCard({ document: documentRef, card, project, projectName, now = Date.now() }) {
+        const article = getElement(documentRef, 'memory-card');
+        if (!card) {
+          article.hidden = true;
+          return;
+        }
+
+        article.hidden = false;
+        const visibleProjectName = project?.name || projectName || card.projectId || 'unknown project';
+        const projectPath = typeof project?.path === 'string' && project.path ? project.path : null;
+        const pathUnknown = project?.pathUnknown === true || !projectPath;
+        const projectChip = getElement(documentRef, 'card-project');
+        const age = getElement(documentRef, 'card-age');
+        getElement(documentRef, 'card-name').textContent = card.name || 'Untitled memory';
+        getElement(documentRef, 'card-summary').textContent = card.summary || card.name || 'Untitled memory';
+        getElement(documentRef, 'card-type').textContent = card.type || 'unknown';
+        const reviewed = getElement(documentRef, 'card-reviewed');
+        reviewed.textContent = 'previously reviewed';
+        reviewed.hidden = card.reviewed !== true;
+        projectChip.textContent = visibleProjectName;
+        projectChip.title = projectPath || 'Project path could not be resolved.';
+        projectChip.setAttribute('aria-label', pathUnknown
+          ? `${visibleProjectName}, path unknown`
+          : `${visibleProjectName}, ${projectPath}`);
+        getElement(documentRef, 'card-path').textContent = pathUnknown ? 'path unknown' : projectPath;
+        age.textContent = formatAge(card.date, now);
+        age.dateTime = Number.isFinite(Date.parse(card.date)) ? card.date : '';
+        getElement(documentRef, 'card-body').textContent = card.body || '';
+        getElement(documentRef, 'card-details').open = false;
+      }
+
+      function resetOriginView(documentRef, hasCard = true) {
+        const toggle = getElement(documentRef, 'card-origin-toggle');
+        const panel = getElement(documentRef, 'card-origin');
+        const date = getElement(documentRef, 'card-origin-date');
+        toggle.textContent = 'why was this saved?';
+        toggle.disabled = !hasCard;
+        toggle.setAttribute('aria-expanded', 'false');
+        panel.hidden = true;
+        getElement(documentRef, 'card-origin-status').textContent = '';
+        getElement(documentRef, 'card-origin-message').textContent = '';
+        date.textContent = '';
+        date.dateTime = '';
+        date.hidden = true;
+      }
+
+      function originReason(reason) {
+        const reasons = {
+          'session-not-found': 'The origin session transcript could not be found.',
+          'write-not-found': 'The memory write was not found in the transcripts checked.',
+          'preceding-message-not-found': 'The write was found, but no preceding user message was available.',
+          'transcript-unreadable': 'The transcript could not be read.',
+          'transcript-too-large': 'The transcript was too large to search safely.',
+          'lookup-timed-out': 'The transcript search took too long.',
+          'lookup-failed': 'The transcript search could not be completed.',
+        };
+        return reasons[reason] || 'No matching memory write was found.';
+      }
+
+      function renderOriginResult(documentRef, result) {
+        const status = getElement(documentRef, 'card-origin-status');
+        const message = getElement(documentRef, 'card-origin-message');
+        const date = getElement(documentRef, 'card-origin-date');
+        if (result?.status === 'found') {
+          status.textContent = 'saved after this message';
+          message.textContent = String(result.message || 'The preceding user message was empty.');
+          const timestamp = Date.parse(result.date);
+          date.dateTime = Number.isFinite(timestamp) ? result.date : '';
+          date.textContent = Number.isFinite(timestamp)
+            ? new Date(timestamp).toUTCString()
+            : 'date unknown';
+          date.hidden = false;
+          return;
+        }
+        status.textContent = 'not found';
+        message.textContent = originReason(result?.reason);
+        date.textContent = '';
+        date.dateTime = '';
+        date.hidden = true;
+      }
+
+      const STABLE_ORIGIN_MISS_REASONS = new Set([
+        'session-not-found',
+        'write-not-found',
+        'preceding-message-not-found',
+      ]);
+
+      function originRevisionKey(card) {
+        if (!card) return undefined;
+        return JSON.stringify([card.id, card.hash || '']);
+      }
+
+      function cacheableOriginResult(result) {
+        return result?.status === 'found'
+          || (result?.status === 'not-found' && STABLE_ORIGIN_MISS_REASONS.has(result.reason));
+      }
+
+      const CANONICAL_TYPES = ['feedback', 'project', 'reference', 'user'];
+
+      function compareText(left, right) {
+        return left < right ? -1 : left > right ? 1 : 0;
+      }
+
+      function availableTypes(projects) {
+        const discovered = new Set(CANONICAL_TYPES);
+        for (const project of projects) {
+          for (const card of project.cards || []) discovered.add(card.type || 'unknown');
+        }
+        return [
+          ...CANONICAL_TYPES,
+          ...[...discovered].filter((type) => !CANONICAL_TYPES.includes(type)).sort(compareText),
+        ];
+      }
+
+      function searchQuery(value) {
+        return String(value || '').trim().toLocaleLowerCase();
+      }
+
+      function visibleCards(
+        projects,
+        selectedProjects,
+        selectedTypes,
+        query = '',
+        includeReviewed = true,
+      ) {
+        const needle = searchQuery(query);
+        const cards = [];
+        for (const project of projects) {
+          if (!selectedProjects.has(project.id)) continue;
+          for (const card of project.cards || []) {
+            if (!includeReviewed && card.reviewed === true) continue;
+            if (!selectedTypes.has(card.type || 'unknown')) continue;
+            if (needle && ![card.name, card.summary, card.body]
+              .some((value) => String(value || '').toLocaleLowerCase().includes(needle))) continue;
+            cards.push({ card, project });
+          }
+        }
+        return cards.sort((left, right) => {
+          const leftTime = Date.parse(left.card.date);
+          const rightTime = Date.parse(right.card.date);
+          const safeLeft = Number.isFinite(leftTime) ? leftTime : Number.POSITIVE_INFINITY;
+          const safeRight = Number.isFinite(rightTime) ? rightTime : Number.POSITIVE_INFINITY;
+          return safeLeft - safeRight || compareText(left.card.id, right.card.id);
+        });
+      }
+
+      function matchingInstructions(files, selectedProjects, query) {
+        const needle = searchQuery(query);
+        if (!needle) return { hits: [], total: 0, truncated: false };
+        const limit = 100;
+        const hits = [];
+        let total = 0;
+        let truncated = false;
+        for (const file of files || []) {
+          if (file.projectId && !selectedProjects.has(file.projectId)) continue;
+          if (file.truncated) truncated = true;
+          const lines = String(file.content || '').split(/\r\n|\n|\r/);
+          for (let index = 0; index < lines.length; index += 1) {
+            if (!lines[index].toLocaleLowerCase().includes(needle)) continue;
+            total += 1;
+            if (hits.length < limit) {
+              hits.push({
+                path: String(file.path || 'unknown file'),
+                line: index + 1,
+                text: lines[index],
+              });
+            }
+          }
+        }
+        return { hits, total, truncated };
+      }
+
+      function instructionExcerpt(text, query, limit = 240) {
+        if (text.length <= limit) return text;
+        const matchAt = text.toLocaleLowerCase().indexOf(searchQuery(query));
+        const start = Math.max(0, Math.min(
+          matchAt - Math.floor(limit / 3),
+          text.length - limit,
+        ));
+        return `${start > 0 ? '…' : ''}${text.slice(start, start + limit)}${start + limit < text.length ? '…' : ''}`;
+      }
+
+      function renderInstructionHits(documentRef, matches, query) {
+        const container = getElement(documentRef, 'instruction-results');
+        const elements = matches.hits.map((hit) => {
+          const article = documentRef.createElement('article');
+          article.className = 'instruction-hit';
+          const location = documentRef.createElement('p');
+          location.className = 'instruction-location';
+          location.textContent = `${hit.path}:${hit.line}`;
+          const excerpt = documentRef.createElement('p');
+          excerpt.className = 'instruction-excerpt';
+          excerpt.textContent = instructionExcerpt(hit.text, query);
+          const note = documentRef.createElement('p');
+          note.className = 'instruction-note';
+          note.textContent = 'Read-only. SCMD does not edit this file.';
+          article.append(location, excerpt, note);
+          return article;
+        });
+        const omitted = matches.total - matches.hits.length;
+        const resultNotes = [];
+        if (omitted > 0) {
+          resultNotes.push(`${omitted} more ${omitted === 1 ? 'match' : 'matches'} omitted.`);
+        }
+        if (matches.truncated) {
+          resultNotes.push('Some instruction files were truncated at 256 KiB, so later matches were not searched.');
+        }
+        if (resultNotes.length > 0) {
+          const note = documentRef.createElement('p');
+          note.className = 'instruction-results-note';
+          note.textContent = resultNotes.join(' ');
+          elements.push(note);
+        }
+        container.replaceChildren(...elements);
+        container.hidden = elements.length === 0;
+      }
+
+      function renderNotices(
+        documentRef,
+        notices,
+        container = getElement(documentRef, 'notices'),
+      ) {
+        const focusedNoticeId = documentRef.activeElement?.dataset?.noticeId;
+        const focusedAction = documentRef.activeElement?.dataset?.noticeAction;
+        let restoredFocus;
+        const noticeElements = [];
+        for (const item of notices || []) {
+          const notice = documentRef.createElement(
+            typeof item === 'string' ? 'p' : 'article',
+          );
+          notice.className = typeof item === 'string' ? 'notice' : 'notice sticker-toast';
+          if (typeof item === 'string') {
+            notice.textContent = item;
+          } else {
+            const message = documentRef.createElement('p');
+            message.textContent = String(item?.message || 'Memory changed.');
+            notice.append(message);
+            if (Array.isArray(item?.actions) && item.actions.length > 0) {
+              const renderGeneration = (item.renderGeneration || 0) + 1;
+              item.renderGeneration = renderGeneration;
+              const actions = documentRef.createElement('div');
+              actions.className = 'notice-actions';
+              for (const action of item.actions) {
+                const button = documentRef.createElement('button');
+                button.type = 'button';
+                button.className = action.primary ? 'pill small primary' : 'pill small ghost';
+                button.textContent = String(action.label || 'Dismiss');
+                button.dataset.noticeId = String(item.id || '');
+                button.dataset.noticeAction = String(action.key || action.label || '');
+                button.addEventListener('click', (...args) => {
+                  if (item.renderGeneration !== renderGeneration) return undefined;
+                  return action.run(...args);
+                });
+                if (
+                  focusedNoticeId
+                  && button.dataset.noticeId === focusedNoticeId
+                  && button.dataset.noticeAction === focusedAction
+                ) restoredFocus = button;
+                actions.append(button);
+              }
+              notice.append(actions);
+            }
+          }
+          noticeElements.push(notice);
+        }
+        container.replaceChildren(...noticeElements);
+        restoredFocus?.focus();
+      }
+
+      function scalarValue(value) {
+        const trimmed = String(value || '').trim();
+        if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+          try { return JSON.parse(trimmed); } catch { return trimmed.slice(1, -1); }
+        }
+        if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
+          return trimmed.slice(1, -1).replaceAll("''", "'");
+        }
+        return trimmed;
+      }
+
+      function memoryPreview(text, fallback = {}) {
+        const lines = String(text).split(/\r\n|\n|\r/);
+        let bodyStart = 0;
+        const fields = {};
+        if ((lines[0] || '').replace(/^\uFEFF/, '') === '---') {
+          const closing = lines.indexOf('---', 1);
+          if (closing >= 0) {
+            bodyStart = closing + 1;
+            for (const line of lines.slice(1, closing)) {
+              const match = /^([A-Za-z0-9_-]+):[ \t]*(.*)$/.exec(line);
+              if (match) fields[match[1]] = scalarValue(match[2]);
+            }
+          }
+        }
+        const body = lines.slice(bodyStart).join('\n');
+        const firstBodyLine = lines.slice(bodyStart).find((line) => line.trim())?.trim();
+        return {
+          name: fields.name || fallback.name || 'Untitled memory',
+          summary: fields.description || firstBodyLine || fallback.summary || fallback.name || 'Untitled memory',
+          type: fields.type || fallback.type || 'unknown',
+          body,
+          content: String(text),
+        };
+      }
+
+      const MAX_DIFF_LINES = 400;
+      const MAX_DIFF_CELLS = 80_000;
+
+      function lineDiff(beforeText, afterText) {
+        const before = String(beforeText).split(/\r\n|\n|\r/);
+        const after = String(afterText).split(/\r\n|\n|\r/);
+        if (
+          before.length > MAX_DIFF_LINES
+          || after.length > MAX_DIFF_LINES
+          || before.length * after.length > MAX_DIFF_CELLS
+        ) return { safe: false, rows: [] };
+
+        const lengths = Array.from(
+          { length: before.length + 1 },
+          () => new Uint16Array(after.length + 1),
+        );
+        for (let left = before.length - 1; left >= 0; left -= 1) {
+          for (let right = after.length - 1; right >= 0; right -= 1) {
+            lengths[left][right] = before[left] === after[right]
+              ? lengths[left + 1][right + 1] + 1
+              : Math.max(lengths[left + 1][right], lengths[left][right + 1]);
+          }
+        }
+
+        const rows = [];
+        let left = 0;
+        let right = 0;
+        while (left < before.length || right < after.length) {
+          if (
+            left < before.length
+            && right < after.length
+            && before[left] === after[right]
+          ) {
+            rows.push({
+              before: { text: before[left], kind: '' },
+              after: { text: after[right], kind: '' },
+            });
+            left += 1;
+            right += 1;
+          } else if (
+            left < before.length
+            && (right >= after.length || lengths[left + 1][right] >= lengths[left][right + 1])
+          ) {
+            rows.push({
+              before: { text: before[left], kind: 'removed' },
+              after: { text: '', kind: 'gap' },
+            });
+            left += 1;
+          } else {
+            rows.push({
+              before: { text: '', kind: 'gap' },
+              after: { text: after[right], kind: 'added' },
+            });
+            right += 1;
+          }
+        }
+        return { safe: true, rows };
+      }
+
+      function renderDiffColumn(documentRef, container, rows, side) {
+        const elements = rows.map((row) => {
+          const item = documentRef.createElement('li');
+          item.textContent = row[side].text || ' ';
+          item.className = row[side].kind;
+          return item;
+        });
+        container.replaceChildren(...elements);
+      }
+
+      function createDeckController({
+        document: documentRef,
+        backend,
+        projects,
+        notices,
+        instructions,
+        root,
+        rewriteAvailable = false,
+        rewriteAvailabilityKnown = true,
+        now = Date.now(),
+        schedule = rootWindow.setTimeout?.bind(rootWindow) || (() => undefined),
+        cancelSchedule = rootWindow.clearTimeout?.bind(rootWindow) || (() => {}),
+        passiveNoticeMs = 4000,
+        resyncRetryMs = 1000,
+        reducedMotion,
+      }) {
+        const state = {
+          projects,
+          allProjects: projects,
+          notices,
+          instructions: instructions || [],
+          root: root || '~/.claude/projects',
+          includeReviewed: false,
+          loading: false,
+          query: '',
+          selectedProjects: new Set(projects.map((project) => project.id)),
+          selectedTypes: new Set(availableTypes(projects)),
+          knownTypes: new Set(availableTypes(projects)),
+          decisions: new Map(),
+          history: [],
+          skippedIds: [],
+          frontIds: [],
+          applying: false,
+          screen: 'deck',
+          reviewedDecisions: undefined,
+          trash: { runs: [], notices: [] },
+          trashBusy: false,
+          rewriteAvailable,
+          rewriteAvailabilityKnown,
+          rewriteBusy: false,
+          rewriteRequestId: 0,
+          proposal: undefined,
+          editorCardId: undefined,
+          liveNotices: new Map(),
+          noticeGenerations: new Map(),
+          laterIds: new Set(),
+          eventGenerations: new Map(),
+        };
+        const fatal = getElement(documentRef, 'fatal-error');
+        const unreviewedButton = getElement(documentRef, 'scope-unreviewed');
+        const everythingButton = getElement(documentRef, 'scope-everything');
+        const searchInput = getElement(documentRef, 'search-input');
+        const applyButton = getElement(documentRef, 'apply-review');
+        const deleteButton = getElement(documentRef, 'action-delete');
+        const skipButton = getElement(documentRef, 'action-skip');
+        const keepButton = getElement(documentRef, 'action-keep');
+        const undoButton = getElement(documentRef, 'action-undo');
+        const cardArticle = getElement(documentRef, 'memory-card');
+        const deckStage = getElement(documentRef, 'deck-stage');
+        const applyPanel = getElement(documentRef, 'apply-panel');
+        const applySummaryCounts = getElement(documentRef, 'apply-summary-counts');
+        const applyDeleteList = getElement(documentRef, 'apply-delete-list');
+        const applyEditList = getElement(documentRef, 'apply-edit-list');
+        const applyCancelButton = getElement(documentRef, 'apply-cancel');
+        const applyConfirmButton = getElement(documentRef, 'apply-confirm');
+        const applyResultsPanel = getElement(documentRef, 'apply-results');
+        const applyResultList = getElement(documentRef, 'apply-result-list');
+        const resultBackButton = getElement(documentRef, 'result-back');
+        const trashButton = getElement(documentRef, 'trash-open');
+        const trashPanel = getElement(documentRef, 'trash-panel');
+        const trashTitle = getElement(documentRef, 'trash-title');
+        const trashRuns = getElement(documentRef, 'trash-runs');
+        const trashNotices = getElement(documentRef, 'trash-notices');
+        const trashBackButton = getElement(documentRef, 'trash-back');
+        const rewriteInput = getElement(documentRef, 'rewrite-input');
+        const rewriteButton = getElement(documentRef, 'rewrite-button');
+        const rewriteHandButton = getElement(documentRef, 'rewrite-hand');
+        const rewriteLogin = getElement(documentRef, 'rewrite-login');
+        const rewriteUnavailable = getElement(documentRef, 'rewrite-unavailable');
+        const rewriteError = getElement(documentRef, 'rewrite-error');
+        const rewritePanel = getElement(documentRef, 'rewrite-panel');
+        const rewriteBeforeLines = getElement(documentRef, 'rewrite-before-lines');
+        const rewriteAfterLines = getElement(documentRef, 'rewrite-after-lines');
+        const rewriteAccept = getElement(documentRef, 'rewrite-accept');
+        const rewriteReject = getElement(documentRef, 'rewrite-reject');
+        const handEditor = getElement(documentRef, 'hand-editor');
+        const handEditorText = getElement(documentRef, 'hand-editor-text');
+        const handEditorSave = getElement(documentRef, 'hand-editor-save');
+        const handEditorCancel = getElement(documentRef, 'hand-editor-cancel');
+        const originToggle = getElement(documentRef, 'card-origin-toggle');
+        const originPanel = getElement(documentRef, 'card-origin');
+        const originStatus = getElement(documentRef, 'card-origin-status');
+        const originMessage = getElement(documentRef, 'card-origin-message');
+        let renderedCards = [];
+        let trashRestoreButtons = new Map();
+        let trashPurgeButtons = new Map();
+        let trashLoadGeneration = 0;
+        let activeDrag;
+        let transientCardId;
+        let originCardRevision;
+        let originViewGeneration = 0;
+        const originLookups = new Map();
+        const pendingEvents = new Map();
+        const passiveNoticeTimers = new Map();
+        let memoryEventRevision = 0;
+        let authoritativeReloadEpoch = 0;
+        let resyncPromise;
+        let resyncAgain = false;
+        let resyncRetryTimer;
+        let destroyed = false;
+        let projectChipRenderGeneration = 0;
+        let typeChipRenderGeneration = 0;
+        let motionTransition;
+        let pendingMotionFocus;
+        const dragThreshold = 96;
+        const motionIsReduced = typeof reducedMotion === 'function'
+          ? reducedMotion
+          : reducedMotion !== undefined
+            ? () => Boolean(reducedMotion)
+            : () => {
+                try {
+                  if (typeof rootWindow.matchMedia !== 'function') return true;
+                  return rootWindow.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                } catch {
+                  return true;
+                }
+              };
+
+        function syncOriginCard(card) {
+          const revision = originRevisionKey(card);
+          if (revision === originCardRevision) return;
+          originCardRevision = revision;
+          originViewGeneration += 1;
+          resetOriginView(documentRef, Boolean(card));
+        }
+
+        async function toggleOrigin() {
+          const card = renderedCards[0]?.card;
+          const id = card?.id;
+          const revision = originRevisionKey(card);
+          if (!id || state.screen !== 'deck' || motionFlowLocked()) return false;
+          if (originCardRevision !== revision) syncOriginCard(card);
+          if (originToggle.getAttribute?.('aria-expanded') === 'true'
+            || originToggle['aria-expanded'] === 'true') {
+            originToggle.setAttribute('aria-expanded', 'false');
+            originPanel.hidden = true;
+            return true;
+          }
+
+          const generation = originViewGeneration;
+          originToggle.setAttribute('aria-expanded', 'true');
+          originPanel.hidden = false;
+          const cached = originLookups.get(revision);
+          if (cached?.result) {
+            renderOriginResult(documentRef, cached.result);
+            return true;
+          }
+
+          originToggle.disabled = true;
+          originStatus.textContent = 'looking up origin';
+          originMessage.textContent = 'Searching local session transcripts.';
+          let pending = cached?.promise;
+          if (!pending) {
+            pending = Promise.resolve().then(() => backend.origin(id));
+            originLookups.set(revision, { promise: pending });
+          }
+          try {
+            const result = await pending;
+            if (originLookups.get(revision)?.promise === pending) {
+              if (cacheableOriginResult(result)) originLookups.set(revision, { result });
+              else originLookups.delete(revision);
+            }
+            if (
+              originCardRevision === revision
+              && originViewGeneration === generation
+              && originRevisionKey(renderedCards[0]?.card) === revision
+            ) renderOriginResult(documentRef, result);
+            return true;
+          } catch (error) {
+            if (originLookups.get(revision)?.promise === pending) originLookups.delete(revision);
+            if (
+              originCardRevision === revision
+              && originViewGeneration === generation
+              && originRevisionKey(renderedCards[0]?.card) === revision
+            ) {
+              originStatus.textContent = 'could not load origin';
+              originMessage.textContent = error?.message || 'The origin request failed.';
+            }
+            return false;
+          } finally {
+            if (
+              originCardRevision === revision
+              && originViewGeneration === generation
+              && originRevisionKey(renderedCards[0]?.card) === revision
+            ) originToggle.disabled = false;
+          }
+        }
+
+        function rewriteFlowLocked() {
+          return state.rewriteBusy || Boolean(state.proposal) || Boolean(state.editorCardId);
+        }
+
+        function motionFlowLocked() {
+          return Boolean(motionTransition);
+        }
+
+        function interactionFlowLocked() {
+          return rewriteFlowLocked() || motionFlowLocked();
+        }
+
+        function focusedActionControl(control) {
+          return documentRef.activeElement === control ? control : undefined;
+        }
+
+        function restoreMotionFocus(transition) {
+          if (!transition?.focusTarget || destroyed) return false;
+          if (!transition.focusTarget.disabled && !transition.focusTarget.hidden) {
+            transition.focusTarget.focus?.();
+            return true;
+          }
+          if (transition.focusMode === 'outgoing') {
+            if (!undoButton.disabled) undoButton.focus?.();
+            else if (!applyButton.disabled) applyButton.focus?.();
+            else deckStage.focus?.();
+            return true;
+          }
+          deckStage.focus?.();
+          return true;
+        }
+
+        function restorePendingMotionFocus() {
+          const transition = pendingMotionFocus;
+          pendingMotionFocus = undefined;
+          return restoreMotionFocus(transition);
+        }
+
+        function cardMotionRevision(entry = renderedCards[0]) {
+          if (!entry?.card?.id) return undefined;
+          return `${entry.card.id}\n${entry.card.hash || ''}`;
+        }
+
+        function clearCardMotionVisual() {
+          delete cardArticle.dataset.motion;
+          delete cardArticle.dataset.dragging;
+          delete cardArticle.dataset.intent;
+          cardArticle.style.transform = '';
+          cardArticle.style.opacity = '';
+          cardArticle.removeAttribute?.('aria-busy');
+        }
+
+        function releaseActiveDrag() {
+          const drag = activeDrag;
+          activeDrag = undefined;
+          if (drag) {
+            try { cardArticle.releasePointerCapture?.(drag.pointerId); } catch { /* Already released. */ }
+          }
+          delete cardArticle.dataset.dragging;
+          return drag;
+        }
+
+        function cancelMotion(updateControls = true) {
+          const transition = motionTransition;
+          if (!transition) return false;
+          motionTransition = undefined;
+          if (transition.handle !== undefined) cancelSchedule(transition.handle);
+          clearCardMotionVisual();
+          if (transition.focusTarget && !destroyed) pendingMotionFocus = transition;
+          if (updateControls && !destroyed) {
+            renderInteractionLock();
+            restorePendingMotionFocus();
+          }
+          return true;
+        }
+
+        function finishMotion(transition) {
+          if (motionTransition !== transition) return false;
+          if (
+            destroyed
+            || state.screen !== 'deck'
+            || cardMotionRevision() !== transition.revision
+          ) {
+            cancelMotion();
+            return false;
+          }
+          motionTransition = undefined;
+          clearCardMotionVisual();
+          if (transition.complete) {
+            const completed = transition.complete();
+            if (completed) restoreMotionFocus(transition);
+            return completed;
+          }
+          renderInteractionLock();
+          restoreMotionFocus(transition);
+          return true;
+        }
+
+        function startMotion({
+          kind,
+          duration,
+          intent,
+          revision,
+          complete,
+          pointerExit,
+          focusTarget,
+          focusMode,
+        }) {
+          if (motionFlowLocked() || !revision) return false;
+          const transition = {
+            kind,
+            revision,
+            cardId: renderedCards[0]?.card.id,
+            complete,
+            focusTarget,
+            focusMode,
+            handle: undefined,
+          };
+          motionTransition = transition;
+          releaseActiveDrag();
+          cardArticle.dataset.motion = kind;
+          if (intent) cardArticle.dataset.intent = intent;
+          else delete cardArticle.dataset.intent;
+          cardArticle.setAttribute?.('aria-busy', 'true');
+          if (pointerExit === 'left') {
+            cardArticle.style.transform = 'translateX(calc(-100vw - 120%)) rotate(-6deg)';
+          } else if (pointerExit === 'right') {
+            cardArticle.style.transform = 'translateX(calc(100vw + 120%)) rotate(6deg)';
+          }
+          renderInteractionLock();
+          transition.handle = schedule(() => finishMotion(transition), duration);
+          return true;
+        }
+
+        function resetDragVisual() {
+          releaseActiveDrag();
+          if (!motionFlowLocked()) clearCardMotionVisual();
+        }
+
+        function updateDrag(event) {
+          if (
+            interactionFlowLocked()
+            || !activeDrag
+            || event.pointerId !== activeDrag.pointerId
+          ) return false;
+          const clientX = Number(event.clientX);
+          if (!Number.isFinite(clientX)) return false;
+          activeDrag.deltaX = clientX - activeDrag.startX;
+          const clientY = Number(event.clientY);
+          activeDrag.deltaY = Number.isFinite(clientY) ? clientY - activeDrag.startY : 0;
+          const tilt = Math.max(-6, Math.min(6, (activeDrag.deltaX / dragThreshold) * 6));
+          const roundedTilt = Math.round(tilt * 100) / 100;
+          cardArticle.style.transform = `translateX(${activeDrag.deltaX}px) rotate(${roundedTilt}deg)`;
+          if (activeDrag.deltaX < -8) cardArticle.dataset.intent = 'delete';
+          else if (activeDrag.deltaX > 8) cardArticle.dataset.intent = 'keep';
+          else delete cardArticle.dataset.intent;
+          event.preventDefault();
+          return true;
+        }
+
+        function beginDrag(event) {
+          if (
+            state.screen !== 'deck'
+            || activeDrag
+            || renderedCards.length === 0
+            || state.loading
+            || interactionFlowLocked()
+            || event.isPrimary === false
+            || event.button !== 0
+            || event.target?.closest?.('button, input, textarea, select, a, summary')
+          ) return;
+          const clientX = Number(event.clientX);
+          if (!Number.isFinite(clientX)) return;
+          const clientY = Number(event.clientY);
+          activeDrag = {
+            pointerId: event.pointerId,
+            cardId: renderedCards[0].card.id,
+            startX: clientX,
+            startY: Number.isFinite(clientY) ? clientY : 0,
+            deltaX: 0,
+            deltaY: 0,
+          };
+          cardArticle.dataset.dragging = 'true';
+          try { cardArticle.setPointerCapture?.(event.pointerId); } catch { /* Capture is an enhancement. */ }
+        }
+
+        function finishDrag(event, cancelled = false) {
+          if (!activeDrag || event.pointerId !== activeDrag.pointerId) return;
+          if (interactionFlowLocked()) {
+            resetDragVisual();
+            return;
+          }
+          updateDrag(event);
+          const deltaX = activeDrag.deltaX;
+          const deltaY = activeDrag.deltaY;
+          const draggedCardId = activeDrag.cardId;
+          const currentCardId = renderedCards[0]?.card.id;
+          if (
+            draggedCardId !== currentCardId
+          ) {
+            resetDragVisual();
+            return;
+          }
+          if (
+            cancelled
+            || Math.abs(deltaX) < dragThreshold
+            || Math.abs(deltaX) <= Math.abs(deltaY)
+          ) {
+            if (motionIsReduced()) {
+              resetDragVisual();
+              return;
+            }
+            delete cardArticle.dataset.intent;
+            startMotion({
+              kind: 'snapback',
+              duration: 180,
+              revision: cardMotionRevision(),
+            });
+            cardArticle.style.transform = '';
+            return;
+          }
+          cardArticle.getBoundingClientRect?.();
+          stageDecision(deltaX < 0 ? 'delete' : 'keep', {
+            pointerExit: deltaX < 0 ? 'left' : 'right',
+          });
+        }
+
+        function removeId(list, id) {
+          const index = list.indexOf(id);
+          if (index >= 0) list.splice(index, 1);
+        }
+
+        function arrangeCards(cards) {
+          const byId = new Map(cards.map((entry) => [entry.card.id, entry]));
+          const skipped = new Set(state.skippedIds);
+          const arranged = [];
+          const added = new Set();
+          const append = (id) => {
+            const decision = state.decisions.get(id);
+            if (added.has(id) || (decision && decision.action !== 'edit')) return;
+            const entry = byId.get(id) || findCardEntry(id);
+            if (!entry) return;
+            added.add(id);
+            arranged.push(entry);
+          };
+          for (const id of state.frontIds) append(id);
+          for (const entry of cards) {
+            if (!skipped.has(entry.card.id)) append(entry.card.id);
+          }
+          for (const id of state.skippedIds) append(id);
+          return arranged;
+        }
+
+        function findCardEntry(id) {
+          for (const project of state.allProjects) {
+            const card = (project.cards || []).find((candidate) => candidate.id === id);
+            if (card) return { card, project };
+          }
+          return undefined;
+        }
+
+        function forEachCard(id, visitor) {
+          const visited = new Set();
+          for (const projectsList of [state.allProjects, state.projects]) {
+            for (const project of projectsList) {
+              const card = (project.cards || []).find((candidate) => candidate.id === id);
+              if (!card || visited.has(card)) continue;
+              visited.add(card);
+              visitor(card);
+            }
+          }
+        }
+
+        function applyCardPreview(id, preview) {
+          forEachCard(id, (card) => {
+            card.name = preview.name;
+            card.summary = preview.summary;
+            card.type = preview.type;
+            card.body = preview.body;
+            card.content = preview.content;
+          });
+        }
+
+        function reapplyStagedEditPreviews() {
+          for (const decision of state.decisions.values()) {
+            if (decision.action !== 'edit') continue;
+            const entry = findCardEntry(decision.id);
+            if (entry) applyCardPreview(
+              decision.id,
+              memoryPreview(decision.newContent, entry.card),
+            );
+          }
+        }
+
+        function projectIdForMemory(id) {
+          if (typeof id !== 'string') return undefined;
+          const slash = id.indexOf('/');
+          return slash > 0 ? id.slice(0, slash) : undefined;
+        }
+
+        function updateCardCollections(id, updater) {
+          const visited = new Set();
+          for (const projectsList of [state.allProjects, state.projects]) {
+            for (const project of projectsList) {
+              if (visited.has(project)) continue;
+              visited.add(project);
+              const index = (project.cards || []).findIndex((card) => card.id === id);
+              updater(project, index);
+            }
+          }
+        }
+
+        function replaceExistingCard(card) {
+          let replaced = false;
+          updateCardCollections(card.id, (project, index) => {
+            if (index < 0) return;
+            project.cards[index] = card;
+            replaced = true;
+          });
+          return replaced;
+        }
+
+        function addCard(card) {
+          updateCardCollections(card.id, (project, index) => {
+            if (project.id !== card.projectId) return;
+            if (index >= 0) project.cards[index] = card;
+            else {
+              project.cards = [...(project.cards || []), card];
+              project.memoryCount = Number(project.memoryCount || 0) + 1;
+            }
+          });
+          state.knownTypes.add(card.type || 'unknown');
+        }
+
+        function removeCard(id) {
+          updateCardCollections(id, (project, index) => {
+            if (index < 0) return;
+            project.cards = project.cards.filter((card) => card.id !== id);
+            project.memoryCount = Math.max(0, Number(project.memoryCount || 0) - 1);
+          });
+        }
+
+        function clearPassiveNoticeTimer(id) {
+          const timer = passiveNoticeTimers.get(id);
+          if (!timer) return;
+          passiveNoticeTimers.delete(id);
+          cancelSchedule(timer.handle);
+        }
+
+        function invalidateLiveNotice(id) {
+          clearPassiveNoticeTimer(id);
+          state.noticeGenerations.delete(id);
+          return state.liveNotices.delete(id);
+        }
+
+        function dismissLiveNotice(id) {
+          if (!invalidateLiveNotice(id)) return false;
+          render();
+          return true;
+        }
+
+        function showAddedNotice(card, shouldRender = true) {
+          clearPassiveNoticeTimer(card.id);
+          const generation = {};
+          state.noticeGenerations.set(card.id, generation);
+          const notice = {
+            id: card.id,
+            kind: 'added',
+            message: `${card.name || card.fileName || card.id} was added.`,
+            actions: [
+              {
+                label: 'Add to deck',
+                primary: true,
+                run() {
+                  if (
+                    state.noticeGenerations.get(card.id) !== generation
+                    || state.liveNotices.get(card.id) !== notice
+                  ) return;
+                  invalidateLiveNotice(card.id);
+                  addCard(card);
+                  removeId(state.frontIds, card.id);
+                  removeId(state.skippedIds, card.id);
+                  state.frontIds.unshift(card.id);
+                  render();
+                },
+              },
+              {
+                label: 'Later',
+                run() {
+                  if (
+                    state.noticeGenerations.get(card.id) !== generation
+                    || state.liveNotices.get(card.id) !== notice
+                  ) return;
+                  state.laterIds.add(card.id);
+                  dismissLiveNotice(card.id);
+                },
+              },
+            ],
+          };
+          state.liveNotices.set(card.id, notice);
+          if (shouldRender) render(true);
+        }
+
+        function showPassiveLiveNotice(id, message) {
+          clearPassiveNoticeTimer(id);
+          const generation = {};
+          const notice = { id, kind: 'passive', message };
+          state.noticeGenerations.set(id, generation);
+          state.liveNotices.set(id, notice);
+          const timer = { handle: undefined };
+          passiveNoticeTimers.set(id, timer);
+          timer.handle = schedule(() => {
+            if (
+              passiveNoticeTimers.get(id) !== timer
+              || state.noticeGenerations.get(id) !== generation
+              || state.liveNotices.get(id) !== notice
+            ) return false;
+            passiveNoticeTimers.delete(id);
+            state.liveNotices.delete(id);
+            state.noticeGenerations.delete(id);
+            if (!destroyed) render(true);
+            return true;
+          }, passiveNoticeMs);
+        }
+
+        function clearOriginLookups(id) {
+          for (const revision of originLookups.keys()) {
+            try {
+              if (JSON.parse(revision)[0] === id) originLookups.delete(revision);
+            } catch { /* Ignore an obsolete cache key. */ }
+          }
+        }
+
+        function dropTransientState(id) {
+          if (motionTransition?.cardId === id) cancelMotion(false);
+          if (activeDrag?.cardId === id) resetDragVisual();
+          if (
+            transientCardId === id
+            || state.proposal?.id === id
+            || state.editorCardId === id
+          ) {
+            resetRewriteTransient();
+            transientCardId = undefined;
+          }
+          clearOriginLookups(id);
+        }
+
+        function invalidatePendingEventReads() {
+          state.eventGenerations.clear();
+          pendingEvents.clear();
+        }
+
+        async function readStableProjects(options, reloadEpoch = authoritativeReloadEpoch) {
+          while (!destroyed) {
+            const revision = memoryEventRevision;
+            let result;
+            try {
+              result = await backend.listProjects(options);
+            } catch (error) {
+              if (destroyed || reloadEpoch !== authoritativeReloadEpoch) return undefined;
+              throw error;
+            }
+            if (destroyed || reloadEpoch !== authoritativeReloadEpoch) return undefined;
+            if (revision === memoryEventRevision) return result;
+            invalidatePendingEventReads();
+          }
+          return undefined;
+        }
+
+        function applyResyncSnapshot(result) {
+          const previousProjectIds = state.allProjects.map((project) => project.id);
+          const allProjectsSelected = previousProjectIds.every(
+            (id) => state.selectedProjects.has(id),
+          );
+          const allTypesSelected = [...state.knownTypes]
+            .every((type) => state.selectedTypes.has(type));
+          const oldCards = new Map(state.allProjects.flatMap((project) => (
+            (project.cards || []).map((card) => [card.id, card])
+          )));
+          const rawProjects = result.projects || [];
+          const rawIds = new Set(rawProjects.flatMap((project) => (
+            (project.cards || []).map((card) => card.id)
+          )));
+          const rawCards = new Map(rawProjects.flatMap((project) => (
+            (project.cards || []).map((card) => [card.id, card])
+          )));
+          for (const [id, notice] of [...state.liveNotices]) {
+            if (notice.kind !== 'added') continue;
+            if (!rawIds.has(id)) invalidateLiveNotice(id);
+            else showAddedNotice(rawCards.get(id), false);
+          }
+          for (const id of [...state.laterIds]) {
+            if (!rawIds.has(id)) state.laterIds.delete(id);
+          }
+          for (const project of rawProjects) {
+            const projectSelected = allProjectsSelected || state.selectedProjects.has(project.id);
+            if (!projectSelected) continue;
+            for (const card of project.cards || []) {
+              if (
+                oldCards.has(card.id)
+                || state.laterIds.has(card.id)
+                || state.liveNotices.get(card.id)?.kind === 'added'
+              ) continue;
+              showAddedNotice(card, false);
+            }
+          }
+          const suppressedIds = new Set([
+            ...state.laterIds,
+            ...[...state.liveNotices]
+              .filter(([, notice]) => notice.kind === 'added')
+              .map(([id]) => id),
+          ]);
+          const nextProjects = rawProjects.map((project) => {
+            const cards = (project.cards || []).filter((card) => !suppressedIds.has(card.id));
+            const suppressedCount = (project.cards || []).length - cards.length;
+            return {
+              ...project,
+              cards,
+              memoryCount: Math.max(0, Number(project.memoryCount || 0) - suppressedCount),
+            };
+          });
+          const nextCards = new Map(nextProjects.flatMap((project) => (
+            (project.cards || []).map((card) => [card.id, card])
+          )));
+          const presentIds = new Set(nextCards.keys());
+          const missingSummaryCards = state.screen === 'summary' && !state.applying
+            ? (state.reviewedDecisions || [])
+              .filter((decision) => !presentIds.has(decision.id))
+              .map((decision) => oldCards.get(decision.id) || { id: decision.id })
+            : [];
+          const changedOrRemovedIds = new Set();
+          for (const [id, card] of oldCards) {
+            const nextCard = nextCards.get(id);
+            if (!nextCard || nextCard.hash !== card.hash) changedOrRemovedIds.add(id);
+          }
+
+          for (const id of [...state.decisions.keys()]) {
+            if (!presentIds.has(id)) state.decisions.delete(id);
+          }
+          state.history = state.history.filter((action) => presentIds.has(action.id));
+          state.frontIds = state.frontIds.filter((id) => presentIds.has(id));
+          state.skippedIds = state.skippedIds.filter((id) => presentIds.has(id));
+          if (state.reviewedDecisions) {
+            state.reviewedDecisions = state.reviewedDecisions.filter(
+              (decision) => presentIds.has(decision.id),
+            );
+          }
+          for (const id of changedOrRemovedIds) dropTransientState(id);
+
+          state.projects = nextProjects;
+          state.allProjects = nextProjects;
+          state.root = result.root || state.root;
+          state.notices = result.notices || [];
+          const nextProjectIds = nextProjects.map((project) => project.id);
+          state.selectedProjects = allProjectsSelected
+            ? new Set(nextProjectIds)
+            : new Set(nextProjectIds.filter((id) => state.selectedProjects.has(id)));
+          const nextTypes = availableTypes(nextProjects);
+          for (const type of nextTypes) state.knownTypes.add(type);
+          if (allTypesSelected) {
+            for (const type of nextTypes) state.selectedTypes.add(type);
+          }
+          for (const card of missingSummaryCards) {
+            showPassiveLiveNotice(
+              card.id,
+              `${card.name || card.fileName || card.id} was removed outside SCMD.`,
+            );
+          }
+          reapplyStagedEditPreviews();
+          const exitedSummary = reconcileOpenApplySummary();
+          render(true);
+          if (exitedSummary) deckStage.focus?.();
+        }
+
+        function cancelResyncRetry() {
+          if (!resyncRetryTimer) return;
+          const timer = resyncRetryTimer;
+          resyncRetryTimer = undefined;
+          cancelSchedule(timer.handle);
+        }
+
+        function scheduleResyncRetry() {
+          if (destroyed || resyncRetryTimer) return;
+          const timer = { handle: undefined };
+          resyncRetryTimer = timer;
+          timer.handle = schedule(() => {
+            if (resyncRetryTimer !== timer) return false;
+            resyncRetryTimer = undefined;
+            if (destroyed) return false;
+            return handleResync();
+          }, resyncRetryMs);
+        }
+
+        function handleResync() {
+          if (destroyed) return Promise.resolve(false);
+          authoritativeReloadEpoch += 1;
+          if (resyncPromise) {
+            resyncAgain = true;
+            return resyncPromise;
+          }
+          const running = (async () => {
+            do {
+              resyncAgain = false;
+              invalidatePendingEventReads();
+              const revision = memoryEventRevision;
+              let result;
+              try {
+                result = await backend.listProjects({ includeReviewed: true });
+              } catch {
+                if (resyncAgain) continue;
+                scheduleResyncRetry();
+                return false;
+              }
+              if (destroyed) return false;
+              if (revision !== memoryEventRevision || resyncAgain) {
+                resyncAgain = true;
+                continue;
+              }
+              authoritativeReloadEpoch += 1;
+              applyResyncSnapshot(result);
+            } while (resyncAgain);
+            cancelResyncRetry();
+            return true;
+          })();
+          resyncPromise = running;
+          running.finally(() => {
+            if (resyncPromise === running) resyncPromise = undefined;
+          });
+          return running;
+        }
+
+        function handleRemovedMemory(id) {
+          const entry = findCardEntry(id);
+          const selected = Boolean(entry && state.selectedProjects.has(entry.project.id));
+          const label = entry?.card.name || entry?.card.fileName || id;
+          let exitedSummary = false;
+          removeCard(id);
+          state.decisions.delete(id);
+          state.history = state.history.filter((action) => action.id !== id);
+          if (state.reviewedDecisions) {
+            state.reviewedDecisions = state.reviewedDecisions.filter((decision) => decision.id !== id);
+          }
+          while (state.frontIds.includes(id)) removeId(state.frontIds, id);
+          while (state.skippedIds.includes(id)) removeId(state.skippedIds, id);
+          state.laterIds.delete(id);
+          invalidateLiveNotice(id);
+          dropTransientState(id);
+          if (selected) showPassiveLiveNotice(id, `${label} was removed outside SCMD.`);
+          exitedSummary = reconcileOpenApplySummary();
+          render(true);
+          if (exitedSummary) deckStage.focus?.();
+          return Boolean(entry);
+        }
+
+        async function readAddedMemory(id, generation) {
+          const projectId = projectIdForMemory(id);
+          if (!projectId || !state.selectedProjects.has(projectId) || state.laterIds.has(id)) {
+            return false;
+          }
+          try {
+            const card = await backend.read(id);
+            if (
+              state.eventGenerations.get(id) !== generation
+              || !card
+              || card.id !== id
+              || !state.selectedProjects.has(card.projectId || projectId)
+              || state.laterIds.has(id)
+            ) return false;
+            showAddedNotice(card);
+            return true;
+          } catch {
+            return false;
+          }
+        }
+
+        async function readChangedMemory(id, generation) {
+          const entry = findCardEntry(id);
+          if (!entry || !state.selectedProjects.has(entry.project.id) || state.decisions.has(id)) {
+            return false;
+          }
+          try {
+            const card = await backend.read(id);
+            const currentEntry = findCardEntry(id);
+            if (
+              state.eventGenerations.get(id) !== generation
+              || !card
+              || card.id !== id
+              || state.decisions.has(id)
+              || !currentEntry
+              || !state.selectedProjects.has(currentEntry.project.id)
+            ) return false;
+            dropTransientState(id);
+            if (!replaceExistingCard(card)) return false;
+            showPassiveLiveNotice(id, `${card.name || card.fileName || id} just updated.`);
+            render(true);
+            return true;
+          } catch {
+            return false;
+          }
+        }
+
+        async function runChangedRefresh(id, pending, readMemory) {
+          let result = false;
+          do {
+            pending.dirty = false;
+            result = await readMemory(id, pending.generation);
+          } while (pending.dirty && pendingEvents.get(id) === pending);
+          return result;
+        }
+
+        function handleMemoryEvent(event) {
+          if (destroyed) return Promise.resolve(false);
+          const type = event?.type;
+          const id = event?.id;
+          if (type === 'resync') return handleResync();
+          if (!['added', 'changed', 'removed'].includes(type) || typeof id !== 'string' || !id) {
+            return Promise.resolve(false);
+          }
+          memoryEventRevision += 1;
+          const inFlight = pendingEvents.get(id);
+          if (inFlight?.type === type) {
+            if (type === 'changed') {
+              const generation = {};
+              state.eventGenerations.set(id, generation);
+              inFlight.generation = generation;
+              inFlight.dirty = true;
+            }
+            return inFlight.promise;
+          }
+          if (
+            type === 'added'
+            && (state.laterIds.has(id) || state.liveNotices.get(id)?.kind === 'added')
+          ) return Promise.resolve(false);
+
+          const generation = {};
+          state.eventGenerations.set(id, generation);
+          if (type === 'changed') {
+            const pendingAddition = !findCardEntry(id)
+              && (inFlight?.type === 'added' || state.liveNotices.get(id)?.kind === 'added');
+            const pending = { type, generation, dirty: false, promise: undefined };
+            pending.promise = runChangedRefresh(
+              id,
+              pending,
+              pendingAddition ? readAddedMemory : readChangedMemory,
+            );
+            pendingEvents.set(id, pending);
+            pending.promise.finally(() => {
+              if (pendingEvents.get(id) !== pending) return;
+              pendingEvents.delete(id);
+              if (state.eventGenerations.get(id) === pending.generation) {
+                state.eventGenerations.delete(id);
+              }
+            });
+            return pending.promise;
+          }
+          let promise;
+          if (type === 'removed') {
+            promise = Promise.resolve(handleRemovedMemory(id));
+          } else {
+            promise = readAddedMemory(id, generation);
+          }
+          const pending = { type, promise, generation };
+          pendingEvents.set(id, pending);
+          promise.finally(() => {
+            if (pendingEvents.get(id) !== pending) return;
+            pendingEvents.delete(id);
+            if (state.eventGenerations.get(id) === generation) {
+              state.eventGenerations.delete(id);
+            }
+          });
+          return promise;
+        }
+
+        function destroy() {
+          if (destroyed) return;
+          destroyed = true;
+          cancelMotion(false);
+          resyncAgain = false;
+          cancelResyncRetry();
+          for (const id of [...passiveNoticeTimers.keys()]) clearPassiveNoticeTimer(id);
+          invalidatePendingEventReads();
+          state.liveNotices.clear();
+          state.noticeGenerations.clear();
+        }
+
+        function liveStateSizes() {
+          return {
+            notices: state.liveNotices.size,
+            noticeGenerations: state.noticeGenerations.size,
+            eventGenerations: state.eventGenerations.size,
+            pendingEvents: pendingEvents.size,
+            passiveTimers: passiveNoticeTimers.size,
+            originLookups: originLookups.size,
+          };
+        }
+
+        function commitDecision(action, expectedId) {
+          const entry = renderedCards[0];
+          if (
+            state.screen !== 'deck'
+            || !entry
+            || entry.card.id !== expectedId
+            || !['keep', 'delete'].includes(action)
+          ) return false;
+          const { card } = entry;
+          const previous = state.decisions.get(card.id);
+          state.decisions.set(card.id, {
+            id: card.id,
+            action,
+            expectedHash: card.hash,
+          });
+          state.history.push({
+            kind: 'decision',
+            id: card.id,
+            previous,
+            direction: action,
+          });
+          removeId(state.frontIds, card.id);
+          removeId(state.skippedIds, card.id);
+          render();
+          return true;
+        }
+
+        function stageDecision(action, { pointerExit, focusTarget } = {}) {
+          const entry = renderedCards[0];
+          if (
+            state.screen !== 'deck'
+            || !entry
+            || interactionFlowLocked()
+            || !['keep', 'delete'].includes(action)
+          ) return false;
+          const { id } = entry.card;
+          if (motionIsReduced()) {
+            resetDragVisual();
+            const committed = commitDecision(action, id);
+            if (committed) restoreMotionFocus({ focusTarget, focusMode: 'outgoing' });
+            return committed;
+          }
+          return startMotion({
+            kind: pointerExit
+              ? `pointer-exit-${pointerExit}`
+              : `exit-${action === 'delete' ? 'left' : 'right'}`,
+            duration: pointerExit ? 180 : 220,
+            intent: action,
+            revision: cardMotionRevision(entry),
+            pointerExit,
+            focusTarget,
+            focusMode: 'outgoing',
+            complete: () => commitDecision(action, id),
+          });
+        }
+
+        function stageEdit(id, newContent) {
+          const entry = findCardEntry(id);
+          if (
+            state.screen !== 'deck'
+            || !entry
+            || rewriteFlowLocked()
+            || motionFlowLocked()
+            || typeof newContent !== 'string'
+          ) return false;
+          const previous = state.decisions.get(id);
+          const previousPreview = {
+            name: entry.card.name,
+            summary: entry.card.summary,
+            type: entry.card.type,
+            body: entry.card.body,
+            content: entry.card.content,
+          };
+          state.decisions.set(id, {
+            id,
+            action: 'edit',
+            expectedHash: previous?.action === 'edit' ? previous.expectedHash : entry.card.hash,
+            newContent,
+          });
+          applyCardPreview(id, memoryPreview(newContent, entry.card));
+          state.history.push({ kind: 'decision', id, previous, previousPreview });
+          render();
+          return true;
+        }
+
+        function setRewriteError(message = '') {
+          rewriteError.textContent = message;
+          rewriteError.hidden = !message;
+        }
+
+        function clearProposal() {
+          state.proposal = undefined;
+          rewritePanel.hidden = true;
+          rewriteBeforeLines.replaceChildren();
+          rewriteAfterLines.replaceChildren();
+        }
+
+        function closeHandEditor() {
+          state.editorCardId = undefined;
+          handEditor.hidden = true;
+          handEditorText.value = '';
+        }
+
+        function resetRewriteTransient() {
+          state.rewriteRequestId += 1;
+          state.rewriteBusy = false;
+          clearProposal();
+          closeHandEditor();
+          setRewriteError();
+          rewriteInput.value = '';
+        }
+
+        function renderRewriteControls() {
+          const hasCard = state.screen === 'deck' && renderedCards.length > 0;
+          const aiDisabled = !hasCard
+            || !state.rewriteAvailable
+            || rewriteFlowLocked()
+            || motionFlowLocked()
+            || state.loading;
+          rewriteInput.disabled = aiDisabled;
+          rewriteButton.disabled = aiDisabled;
+          rewriteButton.textContent = state.rewriteBusy ? 'Working…' : 'Rewrite';
+          rewriteHandButton.disabled = !hasCard
+            || rewriteFlowLocked()
+            || motionFlowLocked()
+            || state.loading;
+          rewriteUnavailable.textContent = state.rewriteAvailabilityKnown
+            ? 'Installing Claude Code enables rewrites.'
+            : 'Rewrite availability could not be checked. Edit by hand still works.';
+          rewriteUnavailable.hidden = state.rewriteAvailable || !hasCard;
+          rewriteLogin.textContent = 'Uses your local Claude Code login';
+          rewriteAccept.disabled = state.rewriteBusy || !state.proposal;
+          rewriteReject.disabled = state.rewriteBusy || !state.proposal;
+          handEditorText.disabled = state.rewriteBusy;
+          handEditorSave.disabled = state.rewriteBusy || !state.editorCardId;
+          handEditorCancel.disabled = state.rewriteBusy || !state.editorCardId;
+        }
+
+        function renderInteractionLock() {
+          renderScope();
+          renderDecisionControls(renderedCards);
+          renderRewriteControls();
+        }
+
+        function focusRewriteControl(preferInput = true) {
+          if (preferInput && !rewriteInput.disabled) rewriteInput.focus?.();
+          else if (!rewriteHandButton.disabled) rewriteHandButton.focus?.();
+          else deckStage.focus?.();
+        }
+
+        function focusOpenedRewriteResult(id) {
+          if (state.screen !== 'deck' || renderedCards[0]?.card.id !== id) return;
+          if (state.proposal?.id === id && !rewriteAccept.disabled) rewriteAccept.focus?.();
+          else if (state.editorCardId === id && !handEditorText.disabled) handEditorText.focus?.();
+        }
+
+        function syncRewriteCard(cardId) {
+          if (cardId !== transientCardId) {
+            resetRewriteTransient();
+            transientCardId = cardId;
+          }
+          renderRewriteControls();
+        }
+
+        async function readFullMemory(id) {
+          const memory = await backend.read(id);
+          if (!memory || typeof memory.content !== 'string') {
+            throw new Error('The full memory file could not be read.');
+          }
+          return memory.content;
+        }
+
+        function openHandEditorWithText(id, text) {
+          if (renderedCards[0]?.card.id !== id || state.screen !== 'deck') return false;
+          resetDragVisual();
+          clearProposal();
+          state.editorCardId = id;
+          handEditorText.value = text;
+          handEditor.hidden = false;
+          renderInteractionLock();
+          if (!state.rewriteBusy) focusOpenedRewriteResult(id);
+          return true;
+        }
+
+        async function openHandEditor() {
+          const id = renderedCards[0]?.card.id;
+          if (!id || state.screen !== 'deck' || interactionFlowLocked()) return false;
+          const staged = state.decisions.get(id);
+          if (staged?.action === 'edit') return openHandEditorWithText(id, staged.newContent);
+          const requestId = ++state.rewriteRequestId;
+          state.rewriteBusy = true;
+          resetDragVisual();
+          clearProposal();
+          setRewriteError();
+          renderInteractionLock();
+          try {
+            const content = await readFullMemory(id);
+            if (
+              requestId !== state.rewriteRequestId
+              || renderedCards[0]?.card.id !== id
+              || state.screen !== 'deck'
+            ) return false;
+            return openHandEditorWithText(id, content);
+          } catch (error) {
+            if (requestId === state.rewriteRequestId && renderedCards[0]?.card.id === id) {
+              setRewriteError(error?.message || 'The full memory file could not be read.');
+            }
+            return false;
+          } finally {
+            if (requestId === state.rewriteRequestId) {
+              state.rewriteBusy = false;
+              renderInteractionLock();
+              focusOpenedRewriteResult(id);
+            }
+          }
+        }
+
+        function showProposal(id, before, after) {
+          const diff = lineDiff(before, after);
+          if (!diff.safe) {
+            setRewriteError('This rewrite is too large to review as a diff. Check the full text in the hand editor.');
+            openHandEditorWithText(id, after);
+            return false;
+          }
+          state.proposal = { id, before, after };
+          closeHandEditor();
+          renderDiffColumn(documentRef, rewriteBeforeLines, diff.rows, 'before');
+          renderDiffColumn(documentRef, rewriteAfterLines, diff.rows, 'after');
+          rewritePanel.hidden = false;
+          renderInteractionLock();
+          if (!state.rewriteBusy) focusOpenedRewriteResult(id);
+          return true;
+        }
+
+        async function requestRewrite() {
+          const id = renderedCards[0]?.card.id;
+          const instruction = rewriteInput.value.trim();
+          if (
+            !id
+            || !instruction
+            || !state.rewriteAvailable
+            || rewriteFlowLocked()
+            || motionFlowLocked()
+            || state.screen !== 'deck'
+          ) return false;
+          const requestId = ++state.rewriteRequestId;
+          state.rewriteBusy = true;
+          resetDragVisual();
+          clearProposal();
+          closeHandEditor();
+          setRewriteError();
+          renderInteractionLock();
+          try {
+            const staged = state.decisions.get(id);
+            const options = staged?.action === 'edit' ? { content: staged.newContent } : undefined;
+            const result = await backend.modifyWithAI(id, instruction, options);
+            if (
+              requestId !== state.rewriteRequestId
+              || renderedCards[0]?.card.id !== id
+              || state.screen !== 'deck'
+            ) return false;
+            if (result?.valid !== true || typeof result.text !== 'string') {
+              setRewriteError(result?.message || 'The proposal could not be used.');
+              if (typeof result?.text === 'string') openHandEditorWithText(id, result.text);
+              return false;
+            }
+            if (typeof result.before !== 'string') {
+              throw new Error('Claude Code did not report which memory it rewrote.');
+            }
+            return showProposal(id, result.before, result.text);
+          } catch (error) {
+            if (requestId === state.rewriteRequestId && renderedCards[0]?.card.id === id) {
+              if (error?.code === 'rewrite-unavailable') {
+                state.rewriteAvailable = false;
+                state.rewriteAvailabilityKnown = true;
+              }
+              setRewriteError(error?.message || 'Claude Code rewrite failed.');
+            }
+            return false;
+          } finally {
+            if (requestId === state.rewriteRequestId) {
+              state.rewriteBusy = false;
+              renderInteractionLock();
+              focusOpenedRewriteResult(id);
+            }
+          }
+        }
+
+        function acceptProposal() {
+          const proposal = state.proposal;
+          if (!proposal || renderedCards[0]?.card.id !== proposal.id || state.rewriteBusy) return false;
+          clearProposal();
+          setRewriteError();
+          const staged = stageEdit(proposal.id, proposal.after);
+          focusRewriteControl(true);
+          return staged;
+        }
+
+        function rejectProposal() {
+          if (!state.proposal || state.rewriteBusy) return false;
+          clearProposal();
+          setRewriteError();
+          renderInteractionLock();
+          focusRewriteControl(true);
+          return true;
+        }
+
+        function saveHandEdit() {
+          const id = state.editorCardId;
+          if (!id || renderedCards[0]?.card.id !== id || state.rewriteBusy) return false;
+          const content = handEditorText.value;
+          closeHandEditor();
+          setRewriteError();
+          const staged = stageEdit(id, content);
+          focusRewriteControl(false);
+          return staged;
+        }
+
+        function skipCurrent({ focusTarget } = {}) {
+          const entry = renderedCards[0];
+          if (state.screen !== 'deck' || !entry || interactionFlowLocked()) return false;
+          const { id } = entry.card;
+          const commit = () => {
+            const current = renderedCards[0];
+            if (state.screen !== 'deck' || current?.card.id !== id) return false;
+            state.history.push({ kind: 'skip', id, direction: 'skip' });
+            removeId(state.frontIds, id);
+            removeId(state.skippedIds, id);
+            state.skippedIds.push(id);
+            render();
+            return true;
+          };
+          if (motionIsReduced()) {
+            const committed = commit();
+            if (committed) restoreMotionFocus({ focusTarget, focusMode: 'outgoing' });
+            return committed;
+          }
+          return startMotion({
+            kind: 'exit-up',
+            duration: 180,
+            revision: cardMotionRevision(entry),
+            focusTarget,
+            focusMode: 'outgoing',
+            complete: commit,
+          });
+        }
+
+        function reverseHistoryAction(action) {
+          if (!action) return false;
+          if (action.kind === 'decision') {
+            if (action.previous) state.decisions.set(action.id, action.previous);
+            else state.decisions.delete(action.id);
+            if (action.previousPreview) applyCardPreview(action.id, action.previousPreview);
+          }
+          removeId(state.frontIds, action.id);
+          removeId(state.skippedIds, action.id);
+          state.frontIds.unshift(action.id);
+          render();
+          return true;
+        }
+
+        function finishReentry(transition) {
+          if (motionTransition !== transition) return false;
+          motionTransition = undefined;
+          clearCardMotionVisual();
+          renderInteractionLock();
+          restoreMotionFocus(transition);
+          return true;
+        }
+
+        function undoLast({ focusTarget } = {}) {
+          if (state.screen !== 'deck' || interactionFlowLocked()) return false;
+          const action = state.history[state.history.length - 1];
+          if (!action) return false;
+          const direction = action.direction === 'delete'
+            ? 'left'
+            : action.direction === 'keep'
+              ? 'right'
+              : action.direction === 'skip'
+                ? 'up'
+                : undefined;
+          if (motionIsReduced() || !direction) {
+            state.history.pop();
+            const reversed = reverseHistoryAction(action);
+            if (reversed) restoreMotionFocus({ focusTarget, focusMode: 'undo' });
+            return reversed;
+          }
+
+          resetDragVisual();
+          const transition = {
+            kind: `reenter-${direction}`,
+            cardId: action.id,
+            revision: undefined,
+            focusTarget,
+            focusMode: 'undo',
+            handle: undefined,
+          };
+          motionTransition = transition;
+          state.history.pop();
+          if (!reverseHistoryAction(action) || renderedCards[0]?.card.id !== action.id) {
+            cancelMotion();
+            return false;
+          }
+          transition.revision = cardMotionRevision();
+          cardArticle.dataset.motion = transition.kind;
+          delete cardArticle.dataset.intent;
+          cardArticle.setAttribute?.('aria-busy', 'true');
+          renderInteractionLock();
+          transition.handle = schedule(() => {
+            if (
+              motionTransition !== transition
+              || state.screen !== 'deck'
+              || cardMotionRevision() !== transition.revision
+            ) {
+              if (motionTransition === transition) cancelMotion();
+              return false;
+            }
+            return finishReentry(transition);
+          }, 180);
+          return true;
+        }
+
+        function decisionLabel(id) {
+          const entry = findCardEntry(id);
+          if (!entry) return id;
+          return `${entry.card.name || entry.card.fileName || id} · ${entry.project.name}`;
+        }
+
+        function renderDecisionList(container, decisions) {
+          const items = decisions.map((decision) => {
+            const item = documentRef.createElement('li');
+            item.textContent = decisionLabel(decision.id);
+            return item;
+          });
+          if (items.length === 0) {
+            const item = documentRef.createElement('li');
+            item.textContent = 'None';
+            items.push(item);
+          }
+          container.replaceChildren(...items);
+        }
+
+        function renderApplySummary() {
+          const decisions = state.reviewedDecisions || [];
+          const kept = decisions.filter((decision) => decision.action === 'keep');
+          const deleted = decisions.filter((decision) => decision.action === 'delete');
+          const edited = decisions.filter((decision) => decision.action === 'edit');
+          applySummaryCounts.textContent = `${kept.length} kept · ${deleted.length} deleted · ${edited.length} edited`;
+          renderDecisionList(applyDeleteList, deleted);
+          renderDecisionList(applyEditList, edited);
+          applyConfirmButton.disabled = state.applying || decisions.length === 0;
+        }
+
+        function reconcileOpenApplySummary() {
+          if (state.screen !== 'summary' || state.applying) return false;
+          if (state.reviewedDecisions?.length) {
+            renderApplySummary();
+            return false;
+          }
+          state.reviewedDecisions = undefined;
+          state.screen = 'deck';
+          applyPanel.hidden = true;
+          deckStage.hidden = false;
+          applyConfirmButton.disabled = true;
+          return true;
+        }
+
+        function openApplySummary() {
+          if (
+            state.screen !== 'deck'
+            || state.applying
+            || interactionFlowLocked()
+            || state.decisions.size === 0
+          ) return false;
+          const decisions = clone([...state.decisions.values()]);
+          state.reviewedDecisions = decisions;
+          renderApplySummary();
+          resetDragVisual();
+          resetRewriteTransient();
+          state.screen = 'summary';
+          deckStage.hidden = true;
+          applyResultsPanel.hidden = true;
+          applyPanel.hidden = false;
+          renderScope();
+          renderDecisionControls(renderedCards);
+          applyConfirmButton.focus?.();
+          return true;
+        }
+
+        function closeApplySummary() {
+          if (state.applying) return;
+          state.reviewedDecisions = undefined;
+          state.screen = 'deck';
+          applyPanel.hidden = true;
+          deckStage.hidden = false;
+          render();
+          applyButton.focus?.();
+        }
+
+        function resultText(result) {
+          if (result.status === 'applied') return 'applied';
+          if (result.reason === 'changed-since-read') return 'changed since you saw it';
+          if (result.reason) return result.reason.replaceAll('-', ' ');
+          return result.status || 'unknown result';
+        }
+
+        function renderApplyResults(decisions, results, labels) {
+          const items = decisions.map((decision, index) => {
+            const result = results[index] || {
+              id: decision.id,
+              action: decision.action,
+              status: 'error',
+              reason: 'no-result',
+            };
+            const item = documentRef.createElement('li');
+            item.textContent = `${labels.get(decision.id)} · ${decision.action} · ${resultText(result)}`;
+            return item;
+          });
+          applyResultList.replaceChildren(...items);
+        }
+
+        async function reloadAfterApply() {
+          const previousProjectIds = state.projects.map((project) => project.id);
+          const allProjectsSelected = previousProjectIds.every(
+            (id) => state.selectedProjects.has(id),
+          );
+          const allTypesSelected = [...state.knownTypes]
+            .every((type) => state.selectedTypes.has(type));
+          const reloadEpoch = authoritativeReloadEpoch;
+          const result = await readStableProjects({ includeReviewed: true }, reloadEpoch);
+          if (!result) return false;
+          state.projects = result.projects || [];
+          state.allProjects = state.projects;
+          state.root = result.root || state.root;
+          state.notices = result.notices || [];
+          const nextProjectIds = state.projects.map((project) => project.id);
+          state.selectedProjects = allProjectsSelected
+            ? new Set(nextProjectIds)
+            : new Set(nextProjectIds.filter((id) => state.selectedProjects.has(id)));
+          const nextTypes = availableTypes(state.projects);
+          for (const type of nextTypes) state.knownTypes.add(type);
+          if (allTypesSelected) {
+            for (const type of nextTypes) state.selectedTypes.add(type);
+          }
+          reapplyStagedEditPreviews();
+          return true;
+        }
+
+        async function confirmApply() {
+          if (
+            state.screen !== 'summary'
+            || state.applying
+            || !state.reviewedDecisions?.length
+          ) return false;
+          const decisions = clone(state.reviewedDecisions);
+          const labels = new Map(decisions.map((decision) => [
+            decision.id,
+            decisionLabel(decision.id),
+          ]));
+          state.applying = true;
+          applyCancelButton.disabled = true;
+          applyConfirmButton.disabled = true;
+          applyConfirmButton.textContent = 'Applying…';
+          try {
+            const payload = await backend.write(decisions);
+            const results = Array.isArray(payload?.results) ? payload.results : [];
+            renderApplyResults(decisions, results, labels);
+            state.decisions.clear();
+            state.reviewedDecisions = undefined;
+            state.history = [];
+            state.frontIds = [];
+            state.skippedIds = [];
+            try {
+              await reloadAfterApply();
+            } catch {
+              state.notices.push('The apply finished, but the deck could not be refreshed.');
+            }
+            render();
+            state.screen = 'results';
+            applyPanel.hidden = true;
+            applyResultsPanel.hidden = false;
+            deckStage.hidden = true;
+            resultBackButton.focus?.();
+            return true;
+          } catch {
+            applySummaryCounts.textContent = 'Nothing was applied because the local server could not complete the request.';
+            return false;
+          } finally {
+            state.applying = false;
+            applyCancelButton.disabled = false;
+            applyConfirmButton.disabled = false;
+            applyConfirmButton.textContent = 'Confirm apply';
+          }
+        }
+
+        function closeApplyResults() {
+          state.screen = 'deck';
+          applyResultsPanel.hidden = true;
+          deckStage.hidden = false;
+          render();
+          deckStage.focus?.();
+        }
+
+        function formatBytes(value) {
+          const bytes = Math.max(0, Number(value) || 0);
+          if (bytes < 1024) return `${bytes} B`;
+          const units = ['KB', 'MB', 'GB'];
+          let amount = bytes / 1024;
+          let unit = units[0];
+          for (let index = 1; index < units.length && amount >= 1024; index += 1) {
+            amount /= 1024;
+            unit = units[index];
+          }
+          const rounded = amount >= 10 ? Math.round(amount) : Math.round(amount * 10) / 10;
+          return `${rounded} ${unit}`;
+        }
+
+        function renderTrashNotices(notices) {
+          const elements = (notices || []).map((message) => {
+            const notice = documentRef.createElement('p');
+            notice.className = 'notice';
+            notice.textContent = message;
+            return notice;
+          });
+          trashNotices.replaceChildren(...elements);
+        }
+
+        function trashFailureMessage(action, error) {
+          const detail = typeof error?.message === 'string' && error.message.trim()
+            ? error.message.trim().replace(/[.]+$/, '')
+            : 'the local server could not complete the request';
+          return `${action} failed: ${detail}.`;
+        }
+
+        function focusTrashTarget(target) {
+          if (target?.kind === 'restore') {
+            const key = `${target.runId}\n${target.id}`;
+            const restore = trashRestoreButtons.get(key);
+            if (restore && !restore.disabled) {
+              restore.focus?.();
+              return;
+            }
+          }
+          if (target?.runId) {
+            const purge = trashPurgeButtons.get(target.runId);
+            if (purge && !purge.disabled) {
+              purge.focus?.();
+              return;
+            }
+          }
+          trashTitle.focus?.();
+        }
+
+        async function restoreTrashItem(runId, id) {
+          if (state.trashBusy) return false;
+          state.trashBusy = true;
+          renderTrash();
+          let focusTarget = { kind: 'restore', runId, id };
+          try {
+            const payload = await backend.write({ restore: { runId, id } });
+            const result = payload?.result;
+            const notices = [];
+            if (result?.status !== 'restored') {
+              notices.push(result?.reason
+                ? `Restore failed: ${result.reason.replaceAll('-', ' ')}.`
+                : 'Restore failed.');
+            } else {
+              focusTarget = { kind: 'run', runId };
+              try {
+                await reloadAfterApply();
+              } catch {
+                notices.push('The memory was restored, but the deck could not be refreshed.');
+              }
+            }
+            await loadTrash(notices);
+            return true;
+          } catch (error) {
+            state.trash = {
+              ...state.trash,
+              notices: [...(state.trash.notices || []), trashFailureMessage('Restore', error)],
+            };
+            return false;
+          } finally {
+            state.trashBusy = false;
+            renderTrash();
+            focusTrashTarget(focusTarget);
+          }
+        }
+
+        async function purgeTrashRun(runId) {
+          if (state.trashBusy) return false;
+          state.trashBusy = true;
+          renderTrash();
+          const focusTarget = { kind: 'run', runId };
+          try {
+            const payload = await backend.remove({ trashRunId: runId });
+            const result = payload?.result;
+            await loadTrash(result?.status === 'purged' ? [] : [
+              result?.reason
+                ? `Purge failed: ${result.reason.replaceAll('-', ' ')}.`
+                : 'Purge failed.',
+            ]);
+            return true;
+          } catch (error) {
+            state.trash = {
+              ...state.trash,
+              notices: [...(state.trash.notices || []), trashFailureMessage('Purge', error)],
+            };
+            return false;
+          } finally {
+            state.trashBusy = false;
+            renderTrash();
+            focusTrashTarget(focusTarget);
+          }
+        }
+
+        function renderTrash() {
+          renderTrashNotices(state.trash.notices);
+          trashBackButton.disabled = state.trashBusy;
+          trashRestoreButtons = new Map();
+          trashPurgeButtons = new Map();
+          const runs = state.trash.runs || [];
+          if (runs.length === 0) {
+            const empty = documentRef.createElement('p');
+            empty.className = 'notice';
+            empty.textContent = 'Trash is empty.';
+            trashRuns.replaceChildren(empty);
+            return;
+          }
+
+          const runElements = runs.map((run) => {
+            const article = documentRef.createElement('article');
+            article.className = 'trash-run';
+            const title = documentRef.createElement('h3');
+            title.textContent = run.deletedAt
+              ? `Deleted ${new Date(run.deletedAt).toLocaleString()}`
+              : `Trash run ${run.id}`;
+            const size = documentRef.createElement('p');
+            size.className = 'trash-size';
+            size.textContent = formatBytes(run.size);
+            const items = documentRef.createElement('ul');
+            items.className = 'trash-items';
+            for (const item of run.items || []) {
+              const row = documentRef.createElement('li');
+              row.className = 'trash-item';
+              const label = documentRef.createElement('span');
+              label.textContent = `${item.name || item.fileName || 'Unknown memory'} · ${item.id || 'invalid item'}`;
+              const action = documentRef.createElement(item.restorable ? 'button' : 'span');
+              if (item.restorable) {
+                action.type = 'button';
+                action.className = 'pill small';
+                action.textContent = 'Restore';
+                action.disabled = state.trashBusy;
+                trashRestoreButtons.set(`${run.id}\n${item.id}`, action);
+                action.addEventListener('click', async () => {
+                  await restoreTrashItem(run.id, item.id);
+                });
+              } else {
+                action.className = 'trash-size';
+                action.textContent = item.status || 'not restorable';
+              }
+              row.append(label, action);
+              items.append(row);
+            }
+            const actions = documentRef.createElement('div');
+            actions.className = 'review-actions';
+            const purge = documentRef.createElement('button');
+            purge.type = 'button';
+            purge.className = 'pill danger small';
+            purge.textContent = run.status === 'ready' ? 'Purge run' : 'Cannot purge';
+            purge.disabled = state.trashBusy || run.status !== 'ready';
+            trashPurgeButtons.set(run.id, purge);
+            purge.addEventListener('click', async () => {
+              if (purge.dataset.confirming !== 'true') {
+                purge.dataset.confirming = 'true';
+                purge.textContent = 'Confirm purge';
+                return;
+              }
+              purge.disabled = true;
+              await purgeTrashRun(run.id);
+            });
+            actions.append(purge);
+            article.append(title, size, items, actions);
+            return article;
+          });
+          trashRuns.replaceChildren(...runElements);
+        }
+
+        async function loadTrash(extraNotices = []) {
+          const generation = ++trashLoadGeneration;
+          try {
+            const payload = await backend.read({ trash: true });
+            if (generation !== trashLoadGeneration || state.screen !== 'trash') return false;
+            state.trash = {
+              runs: Array.isArray(payload?.runs) ? payload.runs : [],
+              notices: [...(payload?.notices || []), ...extraNotices],
+            };
+          } catch {
+            if (generation !== trashLoadGeneration || state.screen !== 'trash') return false;
+            state.trash = {
+              runs: [],
+              notices: [...extraNotices, 'Trash could not be read.'],
+            };
+          }
+          renderTrash();
+          return true;
+        }
+
+        async function openTrash() {
+          if (state.screen !== 'deck' || state.applying || interactionFlowLocked()) return false;
+          resetRewriteTransient();
+          state.screen = 'trash';
+          resetDragVisual();
+          deckStage.hidden = true;
+          applyPanel.hidden = true;
+          applyResultsPanel.hidden = true;
+          trashPanel.hidden = false;
+          renderScope();
+          renderDecisionControls(renderedCards);
+          const loading = documentRef.createElement('p');
+          loading.className = 'notice';
+          loading.textContent = 'Reading local trash.';
+          trashRuns.replaceChildren(loading);
+          const loaded = await loadTrash();
+          if (loaded) trashTitle.focus?.();
+          return true;
+        }
+
+        function closeTrash() {
+          if (state.screen !== 'trash' || state.trashBusy) return;
+          trashLoadGeneration += 1;
+          state.screen = 'deck';
+          trashPanel.hidden = true;
+          deckStage.hidden = false;
+          render();
+          trashButton.focus?.();
+        }
+
+        function renderProjectChips() {
+          const renderGeneration = projectChipRenderGeneration;
+          const focusedKey = documentRef.activeElement?.dataset?.filterGroup === 'project'
+            ? documentRef.activeElement.dataset.filterKey
+            : undefined;
+          const total = state.projects.reduce((sum, project) => sum + Number(project.memoryCount || 0), 0);
+          const projectIds = state.projects.map((project) => project.id);
+          const allSelected = projectIds.length > 0
+            && projectIds.every((projectId) => state.selectedProjects.has(projectId));
+          const allChip = documentRef.createElement('button');
+          allChip.type = 'button';
+          allChip.className = allSelected ? 'chip on' : 'chip';
+          allChip.textContent = `all · ${total}`;
+          allChip.dataset.filterGroup = 'project';
+          allChip.dataset.filterKey = 'all';
+          allChip.setAttribute('aria-pressed', String(allSelected));
+          allChip.disabled = state.loading || state.screen !== 'deck' || interactionFlowLocked();
+          allChip.addEventListener('click', () => {
+            if (projectChipRenderGeneration !== renderGeneration) return;
+            state.selectedProjects = allSelected ? new Set() : new Set(projectIds);
+            render();
+          });
+          const chips = [allChip];
+
+          for (const project of state.projects) {
+            const selected = state.selectedProjects.has(project.id);
+            const chip = documentRef.createElement('button');
+            chip.type = 'button';
+            chip.className = selected ? 'chip on' : 'chip';
+            chip.textContent = `${project.name} · ${Number(project.memoryCount || 0)}`;
+            chip.dataset.filterGroup = 'project';
+            chip.dataset.filterKey = `project:${project.id}`;
+            chip.setAttribute('aria-pressed', String(selected));
+            chip.disabled = state.loading || state.screen !== 'deck' || interactionFlowLocked();
+            chip.addEventListener('click', () => {
+              if (projectChipRenderGeneration !== renderGeneration) return;
+              if (state.selectedProjects.has(project.id)) state.selectedProjects.delete(project.id);
+              else state.selectedProjects.add(project.id);
+              render();
+            });
+            chips.push(chip);
+          }
+          getElement(documentRef, 'project-chips').replaceChildren(...chips);
+          if (focusedKey) {
+            chips.find((chip) => chip.dataset.filterKey === focusedKey)?.focus?.();
+          }
+        }
+
+        function renderTypeChips() {
+          const renderGeneration = typeChipRenderGeneration;
+          const focusedKey = documentRef.activeElement?.dataset?.filterGroup === 'type'
+            ? documentRef.activeElement.dataset.filterKey
+            : undefined;
+          const types = [...state.knownTypes];
+          const chips = types.map((type) => {
+            const selected = state.selectedTypes.has(type);
+            const chip = documentRef.createElement('button');
+            chip.type = 'button';
+            chip.className = selected ? 'chip on' : 'chip';
+            chip.textContent = type;
+            chip.dataset.filterGroup = 'type';
+            chip.dataset.filterKey = type;
+            chip.setAttribute('aria-pressed', String(selected));
+            chip.disabled = state.loading || state.screen !== 'deck' || interactionFlowLocked();
+            chip.addEventListener('click', () => {
+              if (typeChipRenderGeneration !== renderGeneration) return;
+              if (state.selectedTypes.has(type)) state.selectedTypes.delete(type);
+              else state.selectedTypes.add(type);
+              render();
+            });
+            return chip;
+          });
+          getElement(documentRef, 'type-chips').replaceChildren(...chips);
+          if (focusedKey) {
+            chips.find((chip) => chip.dataset.filterKey === focusedKey)?.focus?.();
+          }
+        }
+
+        function renderScope() {
+          const disabled = state.loading || state.screen !== 'deck' || interactionFlowLocked();
+          unreviewedButton.disabled = disabled;
+          everythingButton.disabled = disabled;
+          searchInput.disabled = disabled;
+          for (const chip of getElement(documentRef, 'project-chips').children) {
+            chip.disabled = disabled;
+          }
+          for (const chip of getElement(documentRef, 'type-chips').children) {
+            chip.disabled = disabled;
+          }
+          unreviewedButton.setAttribute('aria-pressed', String(!state.includeReviewed));
+          everythingButton.setAttribute('aria-pressed', String(state.includeReviewed));
+        }
+
+        function renderDecisionControls(cards) {
+          const locked = interactionFlowLocked();
+          const hasCard = state.screen === 'deck' && cards.length > 0 && !locked;
+          deleteButton.disabled = !hasCard;
+          skipButton.disabled = !hasCard;
+          keepButton.disabled = !hasCard;
+          undoButton.disabled = state.screen !== 'deck' || locked || state.history.length === 0;
+          applyButton.disabled = state.screen !== 'deck'
+            || state.applying
+            || locked
+            || state.decisions.size === 0;
+          trashButton.disabled = state.screen !== 'deck' || state.applying || locked;
+        }
+
+        function render(invalidateFilters = false) {
+          if (invalidateFilters) {
+            projectChipRenderGeneration += 1;
+            typeChipRenderGeneration += 1;
+          }
+          const matchingCards = visibleCards(
+            state.projects,
+            state.selectedProjects,
+            state.selectedTypes,
+            state.query,
+            state.includeReviewed,
+          );
+          const cards = arrangeCards(matchingCards);
+          renderedCards = cards;
+          if (
+            motionTransition?.revision
+            && cardMotionRevision(cards[0]) !== motionTransition.revision
+          ) cancelMotion(false);
+          renderProjectChips();
+          renderTypeChips();
+          renderScope();
+          const liveNotices = [...state.liveNotices.values()];
+          renderNotices(documentRef, [
+            ...state.notices,
+            ...liveNotices,
+          ]);
+          renderNotices(
+            documentRef,
+            liveNotices.filter((notice) => notice.kind === 'passive'),
+            getElement(documentRef, 'apply-notices'),
+          );
+          const allMatchingCards = visibleCards(
+            state.allProjects,
+            state.selectedProjects,
+            state.selectedTypes,
+            state.query,
+            true,
+          );
+          const unreviewedMatchingCards = visibleCards(
+            state.allProjects,
+            state.selectedProjects,
+            state.selectedTypes,
+            state.query,
+            false,
+          );
+          const totalMemories = state.allProjects.reduce(
+            (sum, project) => sum + Number(project.memoryCount || 0),
+            0,
+          );
+          const instructionMatches = matchingInstructions(
+            state.instructions,
+            state.selectedProjects,
+            state.query,
+          );
+          const decided = [...state.decisions.values()]
+            .filter((decision) => decision.action !== 'edit').length;
+          getElement(documentRef, 'progress-label').textContent = `${decided} of ${decided + cards.length}`;
+          const progress = getElement(documentRef, 'progress-bar');
+          progress.setAttribute('aria-valuemax', String(decided + cards.length));
+          progress.setAttribute('aria-valuenow', String(decided));
+          const decisions = [...state.decisions.values()];
+          const kept = decisions.filter((decision) => decision.action === 'keep').length;
+          const deleted = decisions.filter((decision) => decision.action === 'delete').length;
+          getElement(documentRef, 'decision-counts').textContent = `kept ${kept} · deleted ${deleted}`;
+          getElement(documentRef, 'app-status').textContent = instructionMatches.total > 0
+            ? `${cards.length} ${cards.length === 1 ? 'memory' : 'memories'} · ${instructionMatches.total} read-only ${instructionMatches.total === 1 ? 'instruction hit' : 'instruction hits'}`
+            : cards.length > 0
+              ? `${cards.length} ${cards.length === 1 ? 'memory' : 'memories'} in deck`
+              : totalMemories === 0
+                ? `No Claude Code memories were found in ${state.root}.`
+                : !state.includeReviewed
+                    && unreviewedMatchingCards.length === 0
+                    && allMatchingCards.length > 0
+                  ? 'Everything under these filters has been reviewed; switch to Everything to see it.'
+                  : matchingCards.length > 0
+                    ? 'No memories remain in this deck; review and apply your staged decisions.'
+                  : 'No memories match these filters.';
+          if (!motionFlowLocked()) resetDragVisual();
+          renderCard({
+            document: documentRef,
+            card: cards[0]?.card,
+            project: cards[0]?.project,
+            now,
+          });
+          syncOriginCard(cards[0]?.card);
+          syncRewriteCard(cards[0]?.card.id);
+          renderInstructionHits(documentRef, instructionMatches, state.query);
+          renderDecisionControls(cards);
+          restorePendingMotionFocus();
+          fatal.hidden = true;
+          fatal.textContent = '';
+          return cards;
+        }
+
+        async function setIncludeReviewed(includeReviewed) {
+          if (
+            state.screen !== 'deck'
+            || state.loading
+            || interactionFlowLocked()
+            || state.includeReviewed === includeReviewed
+          ) return;
+          state.loading = true;
+          renderScope();
+          const previousProjectIds = state.projects.map((project) => project.id);
+          const allProjectsSelected = previousProjectIds.every((id) => state.selectedProjects.has(id));
+          const allTypesSelected = [...state.knownTypes]
+            .every((type) => state.selectedTypes.has(type));
+          const reloadEpoch = authoritativeReloadEpoch;
+          try {
+            const result = await readStableProjects({ includeReviewed }, reloadEpoch);
+            if (!result) return;
+            state.projects = result.projects || [];
+            state.notices = result.notices || [];
+            state.root = result.root || state.root;
+            state.includeReviewed = includeReviewed;
+            if (includeReviewed) state.allProjects = state.projects;
+            const nextProjectIds = state.projects.map((project) => project.id);
+            state.selectedProjects = allProjectsSelected
+              ? new Set(nextProjectIds)
+              : new Set(nextProjectIds.filter((id) => state.selectedProjects.has(id)));
+            const nextTypes = availableTypes(state.projects);
+            for (const type of nextTypes) state.knownTypes.add(type);
+            if (allTypesSelected) {
+              for (const type of nextTypes) state.selectedTypes.add(type);
+            }
+            reapplyStagedEditPreviews();
+            render();
+          } catch {
+            renderFatal(documentRef, 'Could not reload Claude Code memories. The server may have closed.');
+          } finally {
+            state.loading = false;
+            renderScope();
+            renderRewriteControls();
+          }
+        }
+
+        unreviewedButton.addEventListener('click', () => setIncludeReviewed(false));
+        everythingButton.addEventListener('click', () => setIncludeReviewed(true));
+        deleteButton.addEventListener('click', () => stageDecision('delete', {
+          focusTarget: focusedActionControl(deleteButton),
+        }));
+        skipButton.addEventListener('click', () => skipCurrent({
+          focusTarget: focusedActionControl(skipButton),
+        }));
+        keepButton.addEventListener('click', () => stageDecision('keep', {
+          focusTarget: focusedActionControl(keepButton),
+        }));
+        undoButton.addEventListener('click', () => undoLast({
+          focusTarget: focusedActionControl(undoButton),
+        }));
+        applyButton.addEventListener('click', openApplySummary);
+        applyCancelButton.addEventListener('click', closeApplySummary);
+        applyConfirmButton.addEventListener('click', confirmApply);
+        resultBackButton.addEventListener('click', closeApplyResults);
+        trashButton.addEventListener('click', openTrash);
+        trashBackButton.addEventListener('click', closeTrash);
+        rewriteButton.addEventListener('click', requestRewrite);
+        rewriteHandButton.addEventListener('click', openHandEditor);
+        rewriteAccept.addEventListener('click', acceptProposal);
+        rewriteReject.addEventListener('click', rejectProposal);
+        handEditorSave.addEventListener('click', saveHandEdit);
+        handEditorCancel.addEventListener('click', () => {
+          if (state.rewriteBusy) return;
+          closeHandEditor();
+          setRewriteError();
+          renderInteractionLock();
+          rewriteHandButton.focus?.();
+        });
+        originToggle.addEventListener('click', toggleOrigin);
+        rewriteInput.addEventListener('keydown', (event) => {
+          if (event.key !== 'Enter') return;
+          event.preventDefault();
+          requestRewrite();
+        });
+        cardArticle.addEventListener('pointerdown', beginDrag);
+        cardArticle.addEventListener('pointermove', updateDrag);
+        cardArticle.addEventListener('pointerup', (event) => finishDrag(event));
+        cardArticle.addEventListener('pointercancel', (event) => finishDrag(event, true));
+        cardArticle.addEventListener('lostpointercapture', (event) => finishDrag(event, true));
+        searchInput.addEventListener('input', () => {
+          state.query = searchInput.value;
+          render();
+        });
+        documentRef.addEventListener('keydown', (event) => {
+          const target = event.target;
+          if (
+            state.screen === 'summary'
+            && !state.applying
+            && event.key === 'Escape'
+          ) {
+            closeApplySummary();
+            event.preventDefault();
+            return;
+          }
+          if (state.screen === 'trash' && event.key === 'Escape') {
+            closeTrash();
+            event.preventDefault();
+            return;
+          }
+          if (
+            state.screen !== 'deck'
+            || event.defaultPrevented
+            || event.altKey
+            || event.ctrlKey
+            || event.metaKey
+            || interactionFlowLocked()
+            || ['BUTTON', 'INPUT', 'TEXTAREA', 'SELECT'].includes(target?.tagName)
+            || target?.isContentEditable
+          ) return;
+          let handled = false;
+          if (event.key === 'ArrowLeft') handled = stageDecision('delete');
+          else if (event.key === 'ArrowRight') handled = stageDecision('keep');
+          else if (event.key === 'ArrowUp') handled = skipCurrent();
+          else if (event.key === 'z' || event.key === 'Z') handled = undoLast();
+          else if (event.key === 'e' || event.key === 'E') {
+            openHandEditor();
+            handled = true;
+          }
+          if (handled) event.preventDefault();
+        });
+        render();
+        return {
+          render,
+          setIncludeReviewed,
+          stageEdit,
+          handleMemoryEvent,
+          destroy,
+          liveStateSizes,
+          decisions: () => state.decisions.values(),
+          visibleCards: () => visibleCards(
+            state.projects,
+            state.selectedProjects,
+            state.selectedTypes,
+            state.query,
+            state.includeReviewed,
+          ),
+        };
+      }
+
+      function renderFatal(documentRef, message) {
+        const fatal = getElement(documentRef, 'fatal-error');
+        fatal.textContent = message;
+        fatal.hidden = false;
+        getElement(documentRef, 'app-status').textContent = 'SCMD could not load this review.';
+      }
+
+      async function boot({
+        backend,
+        document: documentRef,
+        window: windowRef,
+        now = Date.now(),
+        schedule,
+        cancelSchedule,
+        reducedMotion,
+      } = {}) {
+        const win = windowRef || rootWindow;
+        const doc = documentRef || document;
+        let activeBackend = backend;
+        if (!activeBackend) {
+          const token = new URL(win.location.href).searchParams.get('token');
+          if (!token) {
+            renderFatal(doc, 'This SCMD link is missing its launch token. Start SCMD again.');
+            return { backend: null, projects: [], notices: [] };
+          }
+          activeBackend = createHttpBackend({ token });
+        }
+
+        const bufferedEvents = [];
+        let controller;
+        let cleanedUp = false;
+        const stopEvents = activeBackend.events((event) => {
+          if (cleanedUp) return false;
+          if (!controller) {
+            bufferedEvents.push(event);
+            return undefined;
+          }
+          return controller.handleMemoryEvent(event);
+        });
+        const cleanUp = () => {
+          if (cleanedUp) return;
+          cleanedUp = true;
+          controller?.destroy();
+          stopEvents();
+        };
+        const abortedBoot = () => ({ backend: activeBackend, projects: [], notices: [] });
+        win.addEventListener('beforeunload', cleanUp, { once: true });
+        try {
+          const result = await activeBackend.listProjects({ includeReviewed: true });
+          if (cleanedUp) return abortedBoot();
+          let instructionFiles = [];
+          let rewriteAvailable = false;
+          let rewriteAvailabilityKnown = false;
+          const combinedNotices = [...(result.notices || [])];
+          try {
+            const instructionResult = await activeBackend.instructions();
+            instructionFiles = Array.isArray(instructionResult?.files)
+              ? instructionResult.files
+              : [];
+          } catch {
+            if (cleanedUp) return abortedBoot();
+            combinedNotices.push('Claude Code instruction files could not be read.');
+          }
+          if (cleanedUp) return abortedBoot();
+          try {
+            const status = await activeBackend.read({ status: true });
+            rewriteAvailable = status?.rewriteAvailable === true;
+            rewriteAvailabilityKnown = true;
+          } catch {
+            if (cleanedUp) return abortedBoot();
+            combinedNotices.push('Rewrite availability could not be checked; editing by hand still works.');
+          }
+          if (cleanedUp) return abortedBoot();
+          controller = createDeckController({
+            document: doc,
+            backend: activeBackend,
+            projects: result.projects || [],
+            notices: combinedNotices,
+            instructions: instructionFiles,
+            root: result.root,
+            rewriteAvailable,
+            rewriteAvailabilityKnown,
+            now,
+            schedule,
+            cancelSchedule,
+            reducedMotion,
+          });
+          if (cleanedUp) {
+            controller.destroy();
+            return abortedBoot();
+          }
+          for (const event of bufferedEvents) {
+            if (cleanedUp) break;
+            await controller.handleMemoryEvent(event);
+          }
+          if (cleanedUp) {
+            controller.destroy();
+            return abortedBoot();
+          }
+          return {
+            backend: activeBackend,
+            controller,
+            ...result,
+            notices: combinedNotices,
+            instructions: instructionFiles,
+          };
+        } catch {
+          if (cleanedUp) return abortedBoot();
+          cleanUp();
+          renderFatal(doc, 'Could not read Claude Code memories. The server may have closed.');
+          return { backend: activeBackend, projects: [], notices: [] };
+        }
+      }
+
+      rootWindow.SCMD = {
+        createHttpBackend,
+        createFakeBackend,
+        createDeckController,
+        formatAge,
+        renderCard,
+        visibleCards,
+        boot,
+      };
+      if (!rootWindow.__SCMD_NO_AUTOBOOT__) {
+        rootWindow.__scmdReady = boot({
+          backend: rootWindow.__SCMD_BACKEND__,
+          document,
+          window: rootWindow,
+        });
+      } else {
+        rootWindow.__scmdReady = Promise.resolve(null);
+      }
+    })();
+  </script>
+</body>
+</html>
