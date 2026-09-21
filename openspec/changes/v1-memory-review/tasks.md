@@ -76,4 +76,4 @@
 
 - [x] 12.1 Write `README.md` — one-line description, `/scmd:run` after plugin install as the primary launch path, `npx -y @nelsonjohnsolo/scmd` as the direct-terminal alternative, a GIF placeholder, what it reads and writes, privacy statement, then the origin story as "Why" — and add an MIT `LICENSE`; verify the README renders on GitHub without broken sections
 - [x] 12.2 Run the full suite and a manual end-to-end pass against the real `~/.claude/projects` (not a copy): launch, filter, search, keep several, delete one, rewrite one, view an origin, apply, restore the delete, relaunch and confirm only unreviewed cards appear; verify each step matches its spec scenario
-- [ ] 12.3 Publish `0.1.0` to npm and verify `npx -y @nelsonjohnsolo/scmd@0.1.0` starts from a machine or cache with no prior install
+- [x] 12.3 Publish `0.1.0` to npm and verify `npx -y @nelsonjohnsolo/scmd@0.1.0` starts from a machine or cache with no prior install
