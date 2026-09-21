@@ -55,7 +55,7 @@
 - [x] 8.1 Implement `POST /api/rewrite` spawning `claude -p --output-format json` with the prompt on stdin, fast-model-then-default retry, 60 s timeout, nesting-marker-stripped environment, `ENOENT` → capability off; verify with the real `claude` that "make this shorter" on a fixture memory returns a shorter valid memory file, and that `PATH=/usr/bin` makes `/api/status` report rewrite unavailable
 - [x] 8.2 Validate returned text as a memory file (frontmatter present, `name` and `type` preserved); verify a test with a deliberately malformed response reports "could not be used" and returns the raw text
 - [x] 8.3 Implement the rewrite field, the before/after line diff, accept/reject, the hand editor, the disabled state with explanation, and the "uses your local Claude Code login" line; verify accept stages an edit whose card shows the new summary, reject leaves the card unchanged, and the hand editor stages an edit without `claude`
-- [ ] 8.4 Verify a rewrite from a tool launched inside a Claude Code session succeeds (nested-environment case)
+- [x] 8.4 Verify a rewrite from a tool launched inside a Claude Code session succeeds (nested-environment case)
 
 ## 9. Origin
 
@@ -70,7 +70,7 @@
 ## 11. Claude Code plugin
 
 - [x] 11.1 Create `plugin/` with the manifest and a `run` command exposed as `/scmd:run` that starts the launcher in the background and reports the URL, plus the repository-root marketplace manifest, checked against the current plugin docs; verify installing from the local path makes `/scmd:run` available in a new session
-- [ ] 11.2 Verify `/scmd:run` opens the review page against the real `~/.claude/projects` and that a rewrite from that instance works (8.4)
+- [x] 11.2 Verify `/scmd:run` opens the review page against the real `~/.claude/projects` and that a rewrite from that instance works (8.4)
 
 ## 12. Packaging and release
 
