@@ -4,7 +4,7 @@
   "description": "Stop Calling Me Daddy — review Claude Code's memories as swipeable cards. Keep the good ones, delete the weird ones.",
   "bin": { "scmd": "server.js" },
   "scripts": { "test": "node --test test/*.test.js" },
-  "files": ["server.js", "index.html", "plugin/", "README.md", "LICENSE"],
+  "files": ["server.js", "index.html", "plugin/", "README.md", "LICENSE", "docs/assets/scmd-review.png"],
   "publishConfig": { "access": "public" },
   "engines": { "node": ">=18" },
   "keywords": ["claude", "claude-code", "memory", "cli", "developer-tools"],

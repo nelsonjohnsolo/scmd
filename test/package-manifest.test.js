@@ -16,11 +16,20 @@ const PROJECT_ROOT = join(__dirname, '..');
 const PACKED_PATHS = [
   'LICENSE',
   'README.md',
+  'docs/assets/scmd-review.png',
   'index.html',
   'package.json',
   'plugin/.claude-plugin/plugin.json',
   'plugin/commands/run.md',
   'server.js',
+];
+const FORBIDDEN_PACKED_PREFIXES = [
+  'docs/handoff/',
+  '.superpowers/',
+  '.worktrees/',
+  'test/',
+  'fixtures/',
+  'openspec/',
 ];
 
 test('package exposes the exact zero-dependency public release', async () => {
@@ -43,6 +52,7 @@ test('package exposes the exact zero-dependency public release', async () => {
     'plugin/',
     'README.md',
     'LICENSE',
+    'docs/assets/scmd-review.png',
   ]);
   for (const field of [
     'dependencies',
@@ -70,7 +80,15 @@ test('package exposes the exact zero-dependency public release', async () => {
     const [pack] = JSON.parse(stdout);
 
     assert.equal(pack.version, manifest.version);
-    assert.deepEqual(pack.files.map(({ path }) => path), PACKED_PATHS);
+    const packedPaths = pack.files.map(({ path }) => path);
+    assert.deepEqual(packedPaths, PACKED_PATHS);
+    for (const forbiddenPrefix of FORBIDDEN_PACKED_PREFIXES) {
+      assert.equal(
+        packedPaths.some((path) => path.startsWith(forbiddenPrefix)),
+        false,
+        `packed paths must not include ${forbiddenPrefix}`,
+      );
+    }
     const serverEntry = pack.files.find(({ path }) => path === 'server.js');
     assert.notEqual(serverEntry.mode & 0o111, 0, 'server.js must be executable');
     await assert.rejects(access(join(PROJECT_ROOT, pack.filename)), { code: 'ENOENT' });
