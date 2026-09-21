@@ -127,14 +127,14 @@ test('marketplace points the scmd namespace at the repository-local plugin', () 
   assert.equal(marketplace.plugins.length, 1);
   assert.equal(marketplace.plugins[0].name, 'scmd');
   assert.equal(marketplace.plugins[0].source, './plugin');
-  assert.equal(marketplace.plugins[0].version, '0.1.0');
+  assert.equal(marketplace.plugins[0].version, '0.1.1');
 });
 
 test('plugin manifest defines the scmd namespace and current repository identity', () => {
   const manifest = parseJson(PLUGIN_MANIFEST_PATH);
 
   assert.equal(manifest.name, 'scmd');
-  assert.equal(manifest.version, '0.1.0');
+  assert.equal(manifest.version, '0.1.1');
   assert.equal(manifest.license, 'MIT');
   assert.equal(manifest.repository, 'https://github.com/nelsonjohnsolo/scmd');
   assert.deepEqual(manifest.author, {

@@ -40,7 +40,7 @@ test('package exposes the exact zero-dependency public release', async () => {
   ));
 
   assert.equal(manifest.name, '@nelsonjohnsolo/scmd');
-  assert.equal(manifest.version, '0.1.0');
+  assert.equal(manifest.version, '0.1.1');
   assert.equal(marketplace.metadata.version, manifest.version);
   assert.equal(marketplace.plugins[0].version, manifest.version);
   assert.deepEqual(manifest.bin, { scmd: 'server.js' });
